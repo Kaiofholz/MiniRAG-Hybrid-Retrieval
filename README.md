@@ -17,6 +17,8 @@ The project focuses on retrieval quality, evidence selection, debugging, and ext
 - Confidence scoring based on selected evidence
 - Debugging outputs for retrieved chunks, ranked sentences, selected evidence, and failure cases
 
+  ## This project uses small sample text passages for retrieval experiments. No private, customer, or company data is included.
+
 ## Why I Built This
 
 I built this project to understand the internal mechanisms of RAG systems instead of only using high-level frameworks.
