@@ -6,11 +6,6 @@ import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
 # Input data files are available in the read-only "../input/" directory
 # For example, running this (by clicking run or pressing Shift+Enter) will list all files under the input directory
 
-import os
-for dirname, _, filenames in os.walk('/kaggle/input'):
-    for filename in filenames:
-        print(os.path.join(dirname, filename))
-
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Any, List
 from pathlib import Path
@@ -22,9 +17,6 @@ import matplotlib.pyplot as plt
 import torch.nn.functional as F
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print("Using device:", device)
-!pip install sentence-transformers faiss-cpu
-!pip install sentence-transformers
-!pip install rank-bm25
 # =========================================================
 # 1. Load corpus
 # =========================================================
