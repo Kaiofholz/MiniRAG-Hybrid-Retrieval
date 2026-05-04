@@ -13,6 +13,7 @@ for dirname, _, filenames in os.walk('/kaggle/input'):
 
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Any, List
+from pathlib import Path
 import math
 import torch
 import torch.nn as nn
@@ -28,14 +29,14 @@ print("Using device:", device)
 # 1. Load corpus
 # =========================================================
 TEXT_PATH = Path("data/sample_corpus.txt") 
-
-with open(TEXT_PATH, "r", encoding="utf-8") as f:
-    text = f.read()
 if not TEXT_PATH.exists():
     raise FileNotFoundError(
         f"Could not find {TEXT_PATH}. "
         "Please place your sample text file at data/sample_corpus.txt."
     )
+with open(TEXT_PATH, "r", encoding="utf-8") as f:
+    text = f.read()
+    
 chars = sorted(list(set(text)))
 vocab_size = len(chars)
 
@@ -69,10 +70,10 @@ n_heads = 4
 head_size = n_embd // n_heads
 n_layer = 3
 dropout = 0.1
-max_iters = 3000
-eval_interval = 300
+max_iters = 300
+eval_interval = 100
 learning_rate = 2e-3
-eval_iters = 100
+eval_iters = 20
 
 # =========================================================
 # 3. Batch function
@@ -571,8 +572,8 @@ class SmallLMAdapter:
         returns: list[int]
         """
         self.model.eval()
-        self.model = self.model.to("cuda")
-        idx = torch.tensor([input_ids], dtype=torch.long, device=device)
+        self.model = self.model.to(self.device)
+        idx = torch.tensor([input_ids], dtype=torch.long, device=self.device)
 
         with torch.no_grad():
             # If your original model.generate only accepts (idx, max_new_tokens),
@@ -833,21 +834,6 @@ class MiniRAG:
             return False
         return evidence[0].final_score >= self.evidence_threshold
 
-    def find_profession_evidence(self, question, evidence_sentences):
-        q = question.lower()
-
-        if not ("john shakespeare" in q and ("profession" in q or "occupation" in q or "job" in q)):
-            return None
-
-        for e in evidence_sentences:
-            if "john shakespeare" in e.text.lower():
-                answer = self.extract_profession_answer(question, e.text)
-                if answer:
-                    return answer, e
-
-        return None
-
-
     def extract_person_name(self, text: str):
         stopwords = {
         "The", "A", "An", "In", "On", "At", "His", "Her",
@@ -938,36 +924,7 @@ class MiniRAG:
         query_info = self.analyze_query(question)
         best = evidence_sentences[0].text.strip()
 
-    # 1. relation-specific extraction
-        if query_info["relation"] in {"father", "mother"}:
-            answer = self.extract_family_relation_answer(question, best)
-            if answer:
-                return answer
-
-    # 2. profession extraction
-        if query_info["expected_answer_type"] == "profession":
-            answer = self.extract_profession_from_evidence_list(question, evidence_sentences)
-            if answer:
-                return answer
-
-    # 3. date extraction
-        if query_info["expected_answer_type"] == "date":
-            answer = self.extract_date_answer(best)
-            if answer:
-                return answer
-
-    # 4. number extraction
-        if query_info["expected_answer_type"] == "number":
-            answer = self.extract_number_answer(best)
-            if answer:
-                return answer
-
-    # 5. location extraction
-        if query_info["expected_answer_type"] == "location":
-            answer = self.extract_location_answer(question, best)
-            if answer:
-                return answer
-
+    
     # 6. person extraction
         if query_info["expected_answer_type"] == "person":
             answer = self.extract_person_name(best)
@@ -1170,7 +1127,7 @@ class MiniRAG:
         return answer
 
     def lexical_support_ratio(self, answer: str, evidence_sentences: List[SentenceCandidate]) -> float:
-        if not answer or not evidence:
+        if not answer or not evidence_sentences:
             return 0.0
 
         answer_words = set(answer.lower().split())
@@ -1202,138 +1159,10 @@ class MiniRAG:
             cached = self.get_from_cache(question)
             if cached is not None:
                 return cached
-
-        debug_info = {}
-
-        # 1. retrieve
-        retrieved = self.retrieve_candidates(question)
-        debug_info["num_retrieved"] = len(retrieved)
-
-        if not retrieved:
-            result = AnswerResult(question=question, answer="not enough evidence.", supported=False, confidence=0.0, mode="refusal", evidence_sentences=[],debug=debug_info)
-            self.save_to_cache(question, result)
-            return result
-
-        # 2. rerank chunks
-        top_chunks = self.rerank_chunks(question, retrieved)
-        debug_info["top_chunks"] = [{"chunk_id": ch.chunk_id, "rerank_score": ch.rerank_score, "text_preview": ch.text[:200]} for ch in top_chunks]
-
-        print("\n=== Top chunks before sentence split ===")
-        for ch in top_chunks:
-            print(f"chunk_id={ch.chunk_id}, rerank_score={ch.rerank_score:.4f}")
-        # 3. sentence candidates
-        sentence_candidates = self.build_sentence_candidates(top_chunks)
-        debug_info["num_sentence_candidates"] = len(sentence_candidates)
-
-        if not sentence_candidates:
-            result = AnswerResult(question=question, answer="not enough evidence.", supported=False, confidence=0.0, mode="refusal", evidence_sentences=[], debug=debug_info)
-            self.save_to_cache(question, result)
-            return result
-
-        self.top_sentence_candidates = sorted(sentence_candidates, key=lambda x: x.final_score, reverse=True)
-
-        print("\n=== Sentence candidates right after build ===")
-        for cand in sentence_candidates[:10]:
-            print(
-                f"chunk_id={cand.chunk_id}, "
-                f"chunk_rerank_score={cand.chunk_rerank_score:.4f}, "
-                f"text={cand.text[:120]}"
-            )
-
-        # 4. score sentences
-        sentence_candidates = self.score_sentences(question, sentence_candidates)
-
-        print("\n=== Top Sentence Candidates ===")
-
-        self.print_ranked(
-            sentence_candidates,
-            lambda c: f"chunk={c.chunk_id} | sent={c.sentence_id} | base= {c.base_score:.2f} | heuristic={c.heuristic_score:.2f} | final={c.final_score:.2f} | text={c.text[:80]}", title="Top Sentences"
-            )
-
-            
-        self.top_sentence_candidates = sorted(sentence_candidates, key=lambda x: x.final_score, reverse=True)
-       
-        # 5. select evidence
-        evidence = self.select_evidence(sentence_candidates)
-        confidence = self.compute_confidence(evidence)
-
-        debug_info["selected_evidence"] = [
-            {
-                "chunk_id": e.chunk_id, 
-                "sentence_id": e.sentence_id,
-                "chunk_rerank_score": e.chunk_rerank_score,
-                "sentence_score": e.sentence_score,
-                "base_score": e.base_score,
-                "heuristic_score": e.heuristic_score,
-                "final_score": e.final_score, 
-                "text": e.text} 
-            for e in evidence
-            ]
-        debug_info["confidence"] = confidence
-
-        print("\n=== Selected Evidence ===")
-
-        self.print_ranked(
-            evidence,
-            lambda e: f"chunk={e.chunk_id} | final={e.final_score:.2f} | text={e.text[:80]}", title="Top Sentences"
-            )
         
-        # 5.5 find professional evidence
-        profession_result = self.find_profession_evidence(question, evidence)
-
-        if profession_result:
-            extracted, used_evidence = profession_result
-            confidence = used_evidence.final_score
-            debug_info["used_evidence"] = {
-                "chunk_id": used_evidence.chunk_id,
-                "sentence_id": used_evidence.sentence_id,
-                "final_score": used_evidence.final_score,
-                "text": used_evidence.text,
-            }
-        else:
-            extracted = self.try_extractive_answer(question, evidence)
-            used_evidence = evidence[0] if evidence else None
-            
-        # 6. confidence gate
-        if not self.evidence_is_sufficient(evidence):
-            result = AnswerResult(question=question, answer="not enough evidence.", supported=False, confidence=confidence, mode="refusal", evidence_sentences=[e.text for e in evidence], debug=debug_info)
-            self.save_to_cache(question, result)
-            return result
-
-        # 7. extractive first
-        extracted = self.try_extractive_answer(question, evidence)
-        debug_info["extractive_answer"] = extracted
-
-        if extracted and len(extracted.strip()) > 0:
-            result = AnswerResult(question=question, answer=extracted.strip(), supported=True, confidence=confidence, mode="extractive", evidence_sentences=[e.text for e in evidence], debug=debug_info)
-            self.save_to_cache(question, result)
-            return result
-
-        # 8. build prompt
-        prompt = self.build_prompt(question, evidence)
-        debug_info["prompt"] = prompt
-
-        # 9. generate
-        generated = self.generate_with_small_lm(prompt=prompt, max_new_tokens=64, temperature=0.3, top_k=20)
-        debug_info["generated_answer"] = generated
-
-        # 10. verify
-        if generated and self.verify_answer(generated, evidence):
-            result = AnswerResult(question=question, answer=generated, supported=True, confidence=confidence, mode="generative", evidence_sentences=[e.text for e in evidence], debug=debug_info)
-            self.save_to_cache(question, result)
-            return result
-
-        # 11. fallback to best evidence sentence
-        fallback = evidence[0].text.strip() if evidence else "not enough evidence."
-        result = AnswerResult(question=question, answer=fallback, supported=True if evidence else False, confidence=confidence, mode="extractive_fallback", evidence_sentences=[e.text for e in evidence], debug=debug_info)
-        self.save_to_cache(question, result)
-        return result
-
-        print("\n=== Top Sentence Candidates ===")
-        self.print_top_candidates(sentence_candidates, n=10)
 
 char_tokenizer = CharTokenizerAdapter(stoi, itos)
-small_lm_adapter = SmallLMAdapter(model, char_tokenizer, device)
+small_lm_adapter = SmallLMAdapter(model_transformer, char_tokenizer, device)
 
 
 
@@ -1355,13 +1184,6 @@ rag = MiniRAG(
 question = "What was John Shakespeare's profession?"
 result = rag.answer(question, use_cache=False)
 
-print("ANSWER:", result.answer)
-print("MODE:", result.mode)
-print("CONFIDENCE:", result.confidence)
-print("EVIDENCE:")
-for s in result.evidence_sentences:
-    print("-", s)
-
 print("\n=== Top sentence candidates after final scoring ===")
 for cand in rag.top_sentence_candidates[:10]:
     rb = rag.relation_bonus(question, cand.text)
@@ -1376,40 +1198,6 @@ for cand in rag.top_sentence_candidates[:10]:
     print(f"relation_bonus={rb:.4f}")
     print(f"vagueness_penalty={vp:.4f}")
     print(f"final_score={cand.final_score:.4f}")
-
-
-
-#test result of fallback and ranked candidates
-chunks = rag.retrieve_candidates(question)
-reranked = rag.rerank_chunks(question, chunks)
-candidates = rag.build_sentence_candidates(reranked)
-scored = rag.score_sentences(question, candidates)
-
-print([c.final_score for c in scored[:5]])
-print([c.text[:120] for c in scored[:5]])
-
-for c in scored[:5]:
-    print(c.final_score, c.sentence_score, c.chunk_rerank_score)
-    print(c.text[:150])
-    print()
-
-
-
-for c in scored[:5]:
-    rb = rag.relation_bonus(question, c.text)
-    pb = rag.profession_bonus(question, c.text)
-    vp = rag.vagueness_penalty(c.text)
-
-    print("final:", c.final_score)
-    print("sentence:", c.sentence_score)
-    print("chunk:", c.chunk_rerank_score)
-    print("relation_bonus:", rb)
-    print("profession_bonus:", pb)
-    print("vagueness_penalty:", vp)
-    print(c.text[:180])
-    print()
-
-
 
 
 prompt = rag.build_prompt(question, scored[:3])
