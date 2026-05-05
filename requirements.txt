@@ -1,1 +1,6 @@
-
+numpy
+torch
+matplotlib
+sentence-transformers
+faiss-cpu
+rank-bm25
