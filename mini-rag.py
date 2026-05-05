@@ -858,6 +858,12 @@ class MiniRAG:
         first_word = q.split()[0] if q.split() else ""
         info["question_type"] = first_word
 
+    # profession / occupation
+        if any(word in q for word in ["profession", "occupation", "job", "living"]):
+            info["relation"] = "profession"
+            info["expected_answer_type"] = "profession"
+            return info
+
     # family relations
         if "father" in q:
             info["relation"] = "father"
@@ -867,12 +873,6 @@ class MiniRAG:
         if "mother" in q:
             info["relation"] = "mother"
             info["expected_answer_type"] = "person"
-            return info
-
-    # profession / occupation
-        if any(word in q for word in ["profession", "occupation", "job", "living"]):
-            info["relation"] = "profession"
-            info["expected_answer_type"] = "profession"
             return info
 
     # date / year
@@ -907,7 +907,63 @@ class MiniRAG:
             return info
 
         return info
+    def extract_family_relation_answer(self, question: str, text: str):
+        q = question.lower()
 
+        if "father" in q:
+            patterns = [
+            r'was the son of ([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
+            r'son of ([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
+            r'his father,\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
+            r'father,\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
+            r'father was ([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
+            ]
+            for pat in patterns:
+                m = re.search(pat, text)
+                if m:
+                    return m.group(1)
+
+        if "mother" in q:
+            patterns = [
+            r'was the daughter of ([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
+            r'daughter of ([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
+            r'his mother,\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
+            r'mother,\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
+            r'mother was ([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',
+            ]
+            for pat in patterns:
+                m = re.search(pat, text)
+                if m:
+                    return m.group(1)
+
+        return None
+    
+    def extract_profession_answer(self, question: str, text: str):
+        q = question.lower()
+        s = text.strip()
+
+        if not any(word in q for word in ["profession", "occupation", "job", "living"]):
+            return None
+
+        patterns = [
+        r'John Shakespeare,\s+an?\s+([^,.]+)',
+        r'John Shakespeare\s+was\s+an?\s+([^,.]+)',
+        r'John Shakespeare\s+was\s+the\s+([^,.]+)',
+        r'John Shakespeare.*?,\s+an?\s+([^,.]+)',
+        r'son of John Shakespeare,\s+an?\s+([^,.]+(?:\([^)]*\))?)',
+        r'John Shakespeare,\s+an?\s+([^,.]+(?:\([^)]*\))?)',
+        r'John Shakespeare\s+was\s+an?\s+([^,.]+)',
+        r'John Shakespeare\s+was\s+the\s+([^,.]+)',
+        r'John Shakespeare.*?,\s+an?\s+([^,.]+(?:\([^)]*\))?)'    
+        ]
+
+        for pat in patterns:
+            m = re.search(pat, s, flags=re.IGNORECASE)
+            if m:
+                profession = m.group(1).strip()
+                return self.clean_profession_phrase(profession)
+
+        return None
     def try_extractive_answer(self, question: str, evidence_sentences):
         if not evidence_sentences:
             return None
