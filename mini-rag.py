@@ -15,6 +15,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
+import faiss
+import numpy as np
+from rank_bm25 import BM25Okapi
+import re
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print("Using device:", device)
 # =========================================================
@@ -360,9 +364,6 @@ print(chunks[0])
 # =========================================================
 # 19. RAG - MiniLM Embeddings
 # =========================================================
-import faiss
-import numpy as np
-
 from sentence_transformers import SentenceTransformer
 
 embed_model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -386,8 +387,6 @@ ivf_index.add(chunk_embeddings)
 # =========================================================
 # 19.1 RAG - BM25 Lexical Retriever
 # =========================================================
-from rank_bm25 import BM25Okapi
-import re
 
 def simple_tokenize(text):
     return re.findall(r"\w+", text.lower())
