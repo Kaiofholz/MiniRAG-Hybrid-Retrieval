@@ -1491,6 +1491,7 @@ class MiniRAG:
 
         # 4. score sentences
         sentence_candidates = self.score_sentences(question, sentence_candidates)
+        self.top_sentence_candidates = sorted(sentence_candidates, key=lambda x: x.final_score, reverse=True)
         if debug:
             print("\n=== Top Sentence Candidates ===")
 
@@ -1498,9 +1499,6 @@ class MiniRAG:
                 sentence_candidates,
                 lambda c: f"chunk={c.chunk_id} | sent={c.sentence_id} | base= {c.base_score:.2f} | heuristic={c.heuristic_score:.2f} | final={c.final_score:.2f} | text={c.text[:80]}", title="Top Sentences"
                 )
-
-      
-            self.top_sentence_candidates = sorted(sentence_candidates, key=lambda x: x.final_score, reverse=True)
        
         # 5. select evidence
         evidence = self.select_evidence(sentence_candidates)
