@@ -510,7 +510,9 @@ Answer:"""
     return prompt
     
 reranked = rerank_union(query, unioned)
-
+# =========================================================
+# 21. Retriever wrapper classes
+# =========================================================
 class RetrieverWrapper:
     def __init__(self, search_func):
         self.search_func = search_func
@@ -521,7 +523,9 @@ class RetrieverWrapper:
 # Wrap your functions
 dense_retriever = RetrieverWrapper(retrieve_ivf)
 bm25_retriever = RetrieverWrapper(retrieve_bm25)
-
+# =========================================================
+# 22. Character tokenizer adapter for the small Transformer
+# =========================================================
 class CharTokenizerAdapter:
     def __init__(self, stoi, itos, unknown_token_id=None):
         self.stoi = stoi
@@ -542,7 +546,9 @@ class CharTokenizerAdapter:
     def decode(self, ids):
         return ''.join(self.itos[i] for i in ids if i in self.itos)
 
-
+# =========================================================
+# 23. Small language model adapter
+# =========================================================
 
 class SmallLMAdapter:
     def __init__(self, model, tokenizer, device):
@@ -573,7 +579,9 @@ class SmallLMAdapter:
         # convert from shape (1, T) to python list
         return out[0].tolist()
 
-
+# =========================================================
+# 24. Data classes for retrieved chunks, sentence candidates, and answers
+# =========================================================
 
 @dataclass
 class RetrievedChunk:
@@ -607,7 +615,9 @@ class AnswerResult:
     evidence_sentences: List[str] = field(default_factory=list)
     debug: Dict[str, Any] = field(default_factory=dict)
 
-
+# =========================================================
+# 25. MiniRAG pipeline class
+# =========================================================
 
 class MiniRAG:
     def __init__(
@@ -641,7 +651,9 @@ class MiniRAG:
 
         self.answer_cache = {}
 
-
+    # ---------------------------------------------------------
+    # 25.1 Retrieval and reranking
+    # ---------------------------------------------------------
 
     def retrieve_candidates(self, question: str) -> List[RetrievedChunk]:
 
@@ -702,7 +714,9 @@ class MiniRAG:
 
         chunks = sorted(chunks, key=lambda x: x.rerank_score, reverse=True)
         return chunks[:self.top_n_rerank]
- 
+    # ---------------------------------------------------------
+    # 25.2 Sentence splitting, scoring, and evidence selection
+    # --------------------------------------------------------- 
 
     def simple_sentence_split(self, text: str) -> List[str]:
         text = re.sub(r"\s+", " ", text).strip()
@@ -1019,7 +1033,9 @@ class MiniRAG:
 
         return None
 
-
+    # ---------------------------------------------------------
+    # 25.3 Query analysis and extractive answer rules
+    # ---------------------------------------------------------
     def analyze_query(self, question: str):
         q = question.lower().strip()
 
@@ -1361,7 +1377,9 @@ class MiniRAG:
                 penalty += 0.8
 
         return penalty
-
+    # ---------------------------------------------------------
+    # 25.4 Prompting, generation, verification, and final answer
+    # ---------------------------------------------------------
     def build_prompt(self, question: str, evidence_sentences: List[SentenceCandidate]) -> str:
         lines = [f"question: {question}", "", "evidence_sentences:"]
 
@@ -1578,7 +1596,9 @@ class MiniRAG:
 
         print("\n=== Top Sentence Candidates ===")
         self.print_top_candidates(sentence_candidates, n=10)
-
+# =========================================================
+# 26. Build MiniRAG instance
+# =========================================================
 char_tokenizer = CharTokenizerAdapter(stoi, itos)
 small_lm_adapter = SmallLMAdapter(model_transformer, char_tokenizer, device)
 
@@ -1596,6 +1616,9 @@ rag = MiniRAG(
     evidence_threshold=0.5,
     debug=True,
 )
+# =========================================================
+# 27. Evaluation utilities
+# =========================================================
 def find_evidence_rank(sentence_candidates, expected_evidence_contains):
     """
     Find the 1-based rank of the first sentence candidate containing
@@ -1680,7 +1703,9 @@ def evaluate_rag(rag, test_cases, use_cache=False, verbose_failures=True):
                 print(f"{i}. {ev[:300]}")
     
     return rows
-    
+# =========================================================
+# 28. Test cases and evaluation run
+# =========================================================    
 tests = [
     ("Who was Shakespeare's father?",
      "William Shakespeare was the son of John Shakespeare, an alderman and a successful glover.",
@@ -1776,7 +1801,9 @@ print("Evidence accuracy:", df_eval["evidence_pass"].mean())
 print("Overall accuracy:", df_eval["overall_pass"].mean())
 print("Sentence Recall:", df_eval["found_in_sentence_candidates"].mean())
 print("Sentence MRR:", df_eval["reciprocal_rank"].mean())
-
+# =========================================================
+# 29. Additional debugging for date/birth retrieval
+# =========================================================
 for i, ch in enumerate(chunks):
     text = ch.text if hasattr(ch, "text") else ch
 
@@ -1801,7 +1828,9 @@ for i, c in enumerate(scored[:10], 1):
     print("heuristic:", c.heuristic_score)
     print("final:", c.final_score)
     print("text:", c.text[:300])
-
+# =========================================================
+# 30. Save evaluation results
+# =========================================================
 baseline_metrics_v2 = {
     "answer_accuracy": df_eval["answer_pass"].mean(),
     "evidence_accuracy": df_eval["evidence_pass"].mean(),
