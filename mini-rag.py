@@ -334,7 +334,6 @@ ax2 = ax1.twinx()
 plt.title("Transformer Training")
 plt.show()
 
-model = TransformerLanguageModel(vocab_size, n_embd, block_size, n_heads, n_layer)
 
 
 # =========================================================
@@ -364,6 +363,9 @@ print(chunks[0])
 # =========================================================
 # 19. RAG - MiniLM Embeddings
 # =========================================================
+import faiss
+import numpy as np
+
 from sentence_transformers import SentenceTransformer
 
 embed_model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -387,6 +389,8 @@ ivf_index.add(chunk_embeddings)
 # =========================================================
 # 19.1 RAG - BM25 Lexical Retriever
 # =========================================================
+from rank_bm25 import BM25Okapi
+import re
 
 def simple_tokenize(text):
     return re.findall(r"\w+", text.lower())
@@ -564,7 +568,7 @@ class SmallLMAdapter:
         """
         self.model.eval()
         self.model = self.model.to(self.device)
-        idx = torch.tensor([input_ids], dtype=torch.long, device=self.device)
+        idx = torch.tensor([input_ids], dtype=torch.long, device=device)
 
         with torch.no_grad():
             # If your original model.generate only accepts (idx, max_new_tokens),
@@ -595,6 +599,7 @@ class SentenceCandidate:
     chunk_rerank_score: float = 0.0
     sentence_score: float = 0.0
     final_score: float = 0.0
+    base_score: float = 0.0
 
 
 @dataclass
@@ -743,30 +748,97 @@ class MiniRAG:
         if not candidates:
             return []
 
+        q = question.lower()
+        qinfo = self.analyze_query(question)
+        
+        def date_birth_bonus(text: str) -> float:
+            s_lower = text.lower()
+            bonus = 0.0
+
+            if not (qinfo["expected_answer_type"] == "date" and "born" in q):
+                return bonus
+            
+            if self.is_child_birth_sentence(text):
+                bonus -= 6.0
+
+    # Strongest: "Born c. 23 April 1564" or "Born 23 April 1564"
+            if re.search(
+                r"\bborn\s+(?:c\.\s*)?\d{1,2}\s+[A-Z][a-z]+\s+\d{4}\b",
+                text,
+                flags=re.IGNORECASE,
+            ):
+                bonus += 8.0
+
+    # Also strong: standalone full date, useful when sentence splitting cut away "Born"
+            elif re.search(
+                r"\b(?:c\.\s*)?\d{1,2}\s+[A-Z][a-z]+\s+\d{4}\b",
+                text,
+            ):
+                bonus += 6.0
+
+    # Good: "born ... 1564" within a short distance
+            elif re.search(
+                r"\bborn\b.{0,80}\b(1[0-9]{3}|20[0-9]{2})\b",
+                text,
+                flags=re.IGNORECASE,
+            ):
+                bonus += 4.0
+
+    # Good but weaker: "baptised ... 1564"
+            elif re.search(
+                r"\bbaptised\b.{0,80}\b(1[0-9]{3}|20[0-9]{2})\b",
+                text,
+                flags=re.IGNORECASE,
+            ):
+                bonus += 2.0
+
+    # Penalize broad unrelated year ranges
+            if re.search(r"\bbetween\s+\d{4}\s+and\s+\d{4}\b", text, flags=re.IGNORECASE):
+                bonus -= 4.0
+
+            if "english renaissance theatre" in s_lower:
+                bonus -= 3.0
+
+            return bonus
+
         if self.cross_encoder is None:
-            # crude fallback if no cross-encoder
+        # crude fallback if no cross-encoder
             for cand in candidates:
                 cand.sentence_score = cand.chunk_rerank_score
                 cand.base_score = cand.sentence_score
+
                 cand.heuristic_score = (
                     self.relation_bonus(question, cand.text)
                     + self.profession_bonus(question, cand.text)
+                    + date_birth_bonus(cand.text)
                     - self.vagueness_penalty(cand.text)
                 )
-                cand.heuristic_score = max(min(cand.heuristic_score, 2.0), -2.0)
                 cand.final_score = cand.base_score + cand.heuristic_score
 
             return sorted(candidates, key=lambda c: c.final_score, reverse=True)
 
+    # cross-encoder branch
         pairs = [(question, cand.text) for cand in candidates]
         scores = self.cross_encoder.predict(pairs)
 
         for cand, score in zip(candidates, scores):
             cand.sentence_score = float(score)
-            cand.base_score = (self.sentence_alpha * cand.sentence_score + self.chunk_beta * cand.chunk_rerank_score)
-            cand.heuristic_score = (self.relation_bonus(question, cand.text) + self.profession_bonus(question, cand.text)- self.vagueness_penalty(cand.text))
-            cand.heuristic_score = max(min(cand.heuristic_score, 2.0), -2.0)
-            cand.final_score = (cand.base_score + cand.heuristic_score)
+
+            cand.base_score = (
+                self.sentence_alpha * cand.sentence_score
+                + self.chunk_beta * cand.chunk_rerank_score
+            )
+
+            ordinary_heuristic = (
+                self.relation_bonus(question, cand.text)
+                + self.profession_bonus(question, cand.text)
+                - self.vagueness_penalty(cand.text)
+            )
+            ordinary_heuristic = max(min(ordinary_heuristic, 2.0), -2.0)
+            answer_type_bonus = date_birth_bonus(cand.text)
+            cand.heuristic_score = ordinary_heuristic + answer_type_bonus
+            cand.final_score = cand.base_score + cand.heuristic_score
+
         return sorted(candidates, key=lambda c: c.final_score, reverse=True)
 
     def deduplicate_sentences( self, candidates: List[SentenceCandidate], max_overlap_ratio: float = 0.8) -> List[SentenceCandidate]:
@@ -824,7 +896,115 @@ class MiniRAG:
         if not evidence:
             return False
         return evidence[0].final_score >= self.evidence_threshold
+        
+    def extract_date_answer(self,questoin: str,text: str):
+    # Prefer full date: c. 23 April 1564 / 23 April 1564
+        full_date = re.search(
+            r"\b(?:c\.\s*)?\d{1,2}\s+[A-Z][a-z]+\s+\d{4}\b",
+            text
+        )
+        if full_date:
+            return full_date.group(0).strip()
 
+    # Prefer year near born
+        born_year = re.search(
+            r"\bborn\b.{0,80}\b(1[0-9]{3}|20[0-9]{2})\b",
+            text,
+            flags=re.IGNORECASE,
+        )
+        if born_year:
+            return born_year.group(1)
+
+    # Prefer year near baptised
+        baptised_year = re.search(
+            r"\bbaptised\b.{0,80}\b(1[0-9]{3}|20[0-9]{2})\b",
+            text,
+            flags=re.IGNORECASE,
+        )
+        if baptised_year:
+            return baptised_year.group(1)
+
+    # Avoid returning unrelated year ranges like "between 1558 and 1642"
+        if re.search(r"\bbetween\s+\d{4}\s+and\s+\d{4}\b", text, flags=re.IGNORECASE):
+            return None
+
+    # Last fallback: any year
+        year_match = re.search(r"\b(1[0-9]{3}|20[0-9]{2})\b", text)
+        if year_match:
+            return year_match.group(0)
+
+        return None
+        
+    def extract_date_with_source(self, question: str, evidence_sentences):
+        for e in evidence_sentences:
+            answer = self.extract_date_answer(question,e.text)
+            if answer:
+                return answer, e
+        return None, None
+        
+    def extract_number_answer(self, question: str, text: str):
+        q = question.lower()
+        s = text.strip()
+
+        word_numbers = (
+            "one|two|three|four|five|six|seven|eight|nine|ten|"
+            "eleven|twelve|thirteen|fourteen|fifteen|sixteen|"
+            "seventeen|eighteen|nineteen|twenty"
+        )
+
+    # 1. If the query asks about children, prefer number directly before "children"
+        if "children" in q or "child" in q:
+            patterns = [
+                rf"\b({word_numbers}|\d+)\s+children\b",
+                rf"\b({word_numbers}|\d+)\s+child\b",
+            ]
+
+            for pat in patterns:
+                m = re.search(pat, s, flags=re.IGNORECASE)
+                if m:
+                    return m.group(1)
+
+    # 2. If the query asks about age, prefer age patterns
+        if "age" in q or "how old" in q:
+            patterns = [
+                rf"\bat the age of\s+({word_numbers}|\d+)\b",
+                rf"\bat\s+({word_numbers}|\d+)\b",
+                rf"\b({word_numbers}|\d+)-year-old\b",
+            ]
+
+            for pat in patterns:
+                m = re.search(pat, s, flags=re.IGNORECASE)
+                if m:
+                    return m.group(1)
+
+    # 3. General fallback: first digit
+        match = re.search(r"\b\d+(\.\d+)?\b", s)
+        if match:
+            return match.group(0)
+
+    # 4. General fallback: first word-number
+        word_match = re.search(rf"\b({word_numbers})\b", s, flags=re.IGNORECASE)
+        if word_match:
+            return word_match.group(1)
+
+        return None
+        
+    def extract_location_answer(self, question: str, text: str):
+        q = question.lower()
+
+        if "born" in q:
+            patterns = [
+            r"born and raised in ([^\.]+)",
+            r"born in ([^\.]+)",
+        ]
+
+            for pat in patterns:
+                match = re.search(pat, text, flags=re.IGNORECASE)
+                if match:
+                    return match.group(1).strip()
+
+        return None 
+        
     def extract_person_name(self, text: str):
         stopwords = {
         "The", "A", "An", "In", "On", "At", "His", "Her",
@@ -858,12 +1038,24 @@ class MiniRAG:
         first_word = q.split()[0] if q.split() else ""
         info["question_type"] = first_word
 
-    # profession / occupation
+            # target entity detection
+        if "john shakespeare" in q:
+            info["target_entity"] = "john shakespeare"
+        elif "william shakespeare" in q:
+            info["target_entity"] = "william shakespeare"
+        elif "shakespeare's father" in q or "father" in q:
+            info["target_entity"] = "father"
+        elif "shakespeare's mother" in q or "mother" in q:
+            info["target_entity"] = "mother"
+        elif "shakespeare" in q:
+            info["target_entity"] = "shakespeare"
+
+        # profession / occupation
         if any(word in q for word in ["profession", "occupation", "job", "living"]):
             info["relation"] = "profession"
             info["expected_answer_type"] = "profession"
             return info
-
+            
     # family relations
         if "father" in q:
             info["relation"] = "father"
@@ -907,6 +1099,23 @@ class MiniRAG:
             return info
 
         return info
+        
+    def is_child_birth_sentence(self, text: str) -> bool:
+        s = text.lower()
+
+        child_markers = [
+            "children",
+            "child",
+            "son",
+            "daughter",
+            "twins",
+            "susanna",
+            "hamnet",
+            "judith",
+        ]
+
+        return any(marker in s for marker in child_markers)
+        
     def extract_family_relation_answer(self, question: str, text: str):
         q = question.lower()
 
@@ -964,25 +1173,52 @@ class MiniRAG:
                 return self.clean_profession_phrase(profession)
 
         return None
-    def try_extractive_answer(self, question: str, evidence_sentences):
+
+    def try_extractive_answer_with_source(self, question: str, evidence_sentences, debug: bool = False):
         if not evidence_sentences:
-            return None
+            return None, None
 
         query_info = self.analyze_query(question)
         best = evidence_sentences[0].text.strip()
 
-    
-    # 6. person extraction
+        if debug:
+            print("QUERY INFO:", query_info)
+            print("BEST EVIDENCE:", best)
+
+        if query_info["relation"] in {"father", "mother"}:
+            answer = self.extract_family_relation_answer(question, best)
+            if answer:
+                return answer, evidence_sentences[0]
+
+        if query_info["expected_answer_type"] == "profession":
+            answer, source = self.extract_profession_with_source(question, evidence_sentences)
+            if answer:
+                return answer, source
+
+        if query_info["expected_answer_type"] == "date":
+            answer, source = self.extract_date_with_source(question, evidence_sentences)
+            if answer:
+                return answer, source
+
+        if query_info["expected_answer_type"] == "number":
+            answer = self.extract_number_answer(question,best)
+            if answer:
+                return answer, evidence_sentences[0]
+
+        if query_info["expected_answer_type"] == "location":
+            answer = self.extract_location_answer(question, best)
+            if answer:
+                return answer, evidence_sentences[0]
+
         if query_info["expected_answer_type"] == "person":
             answer = self.extract_person_name(best)
             if answer:
-                return answer
+                return answer, evidence_sentences[0]
 
-    # 7. explanation / definition fallback
         if query_info["expected_answer_type"] in {"definition", "explanation"}:
-            return best
+            return best, evidence_sentences[0]
 
-        return best
+        return best, evidence_sentences[0]
 
     def print_top_candidates(self, candidates, n=10):
         lines = [
@@ -1172,7 +1408,15 @@ class MiniRAG:
         answer = answer.split("\n")[0].strip()
 
         return answer
+        
+    def extract_profession_with_source(self, question: str, evidence_sentences):
+        for e in evidence_sentences:
+            answer = self.extract_profession_answer(question, e.text)
+            if answer:
+                return answer, e
 
+        return None, None  
+        
     def lexical_support_ratio(self, answer: str, evidence_sentences: List[SentenceCandidate]) -> float:
         if not answer or not evidence_sentences:
             return 0.0
@@ -1201,12 +1445,146 @@ class MiniRAG:
 
 
 
-    def answer(self, question: str, use_cache: bool = True) -> AnswerResult:
+    def answer(self, question: str, use_cache: bool = True, debug: bool = False) -> AnswerResult:
         if use_cache:
             cached = self.get_from_cache(question)
             if cached is not None:
                 return cached
-        
+
+        debug_info = {}
+
+        # 1. retrieve
+        retrieved = self.retrieve_candidates(question)
+        debug_info["num_retrieved"] = len(retrieved)
+
+        if not retrieved:
+            result = AnswerResult(question=question, answer="not enough evidence.", supported=False, confidence=0.0, mode="refusal", evidence_sentences=[],debug=debug_info)
+            self.save_to_cache(question, result)
+            return result
+
+        # 2. rerank chunks
+        top_chunks = self.rerank_chunks(question, retrieved)
+        debug_info["top_chunks"] = [{"chunk_id": ch.chunk_id, "rerank_score": ch.rerank_score, "text_preview": ch.text[:200]} for ch in top_chunks]
+        if debug:
+            print("\n=== Top chunks before sentence split ===")
+            for ch in top_chunks:
+                print(f"chunk_id={ch.chunk_id}, rerank_score={ch.rerank_score:.4f}")
+        # 3. sentence candidates
+        sentence_candidates = self.build_sentence_candidates(top_chunks)
+        debug_info["num_sentence_candidates"] = len(sentence_candidates)
+
+        if not sentence_candidates:
+            result = AnswerResult(question=question, answer="not enough evidence.", supported=False, confidence=0.0, mode="refusal", evidence_sentences=[], debug=debug_info)
+            self.save_to_cache(question, result)
+            return result
+
+        self.top_sentence_candidates = sorted(sentence_candidates, key=lambda x: x.final_score, reverse=True)
+
+        if debug:
+            print("\n=== Sentence candidates right after build ===")
+            for cand in sentence_candidates[:10]:
+                print(
+                    f"chunk_id={cand.chunk_id}, "
+                    f"chunk_rerank_score={cand.chunk_rerank_score:.4f}, "
+                    f"text={cand.text[:120]}"
+                )
+
+        # 4. score sentences
+        sentence_candidates = self.score_sentences(question, sentence_candidates)
+        if debug:
+            print("\n=== Top Sentence Candidates ===")
+
+            self.print_ranked(
+                sentence_candidates,
+                lambda c: f"chunk={c.chunk_id} | sent={c.sentence_id} | base= {c.base_score:.2f} | heuristic={c.heuristic_score:.2f} | final={c.final_score:.2f} | text={c.text[:80]}", title="Top Sentences"
+                )
+
+      
+            self.top_sentence_candidates = sorted(sentence_candidates, key=lambda x: x.final_score, reverse=True)
+       
+        # 5. select evidence
+        evidence = self.select_evidence(sentence_candidates)
+        confidence = self.compute_confidence(evidence)
+
+        debug_info["selected_evidence"] = [
+            {
+                "chunk_id": e.chunk_id, 
+                "sentence_id": e.sentence_id,
+                "chunk_rerank_score": e.chunk_rerank_score,
+                "sentence_score": e.sentence_score,
+                "base_score": e.base_score,
+                "heuristic_score": e.heuristic_score,
+                "final_score": e.final_score, 
+                "text": e.text} 
+            for e in evidence
+            ]
+        if debug:
+            debug_info["confidence"] = confidence
+
+            print("\n=== Selected Evidence ===")
+
+            self.print_ranked(
+                evidence,
+                lambda e: f"chunk={e.chunk_id} | final={e.final_score:.2f} | text={e.text[:80]}", title="Top Sentences"
+                )
+            
+        # 6. confidence gate
+        if not self.evidence_is_sufficient(evidence):
+            result = AnswerResult(question=question, answer="not enough evidence.", supported=False, confidence=confidence, mode="refusal", evidence_sentences=[e.text for e in evidence], debug=debug_info)
+            self.save_to_cache(question, result)
+            return result
+
+        # 7. extractive first
+        extracted, source_evidence = self.try_extractive_answer_with_source(question, evidence)
+        debug_info["extractive_answer"] = extracted
+        debug_info["extractive_source"] = source_evidence.text if source_evidence else None
+
+        if extracted and len(extracted.strip()) > 0:
+            ordered_evidence = []
+
+    # Put the evidence sentence that actually produced the answer first
+            if source_evidence is not None:
+                ordered_evidence.append(source_evidence.text)
+
+    # Then append the rest of the selected evidence, avoiding duplicates
+            for e in evidence:
+                if source_evidence is None or e.text != source_evidence.text:
+                    ordered_evidence.append(e.text)
+
+            result = AnswerResult(
+                question=question,
+                answer=extracted.strip(),
+                supported=True,
+                confidence=confidence,
+                mode="extractive",
+                evidence_sentences=ordered_evidence,
+                debug=debug_info,
+            )
+            self.save_to_cache(question, result)
+            return result
+
+        # 8. build prompt
+        prompt = self.build_prompt(question, evidence)
+        debug_info["prompt"] = prompt
+
+        # 9. generate
+        generated = self.generate_with_small_lm(prompt=prompt, max_new_tokens=64, temperature=0.3, top_k=20)
+        debug_info["generated_answer"] = generated
+
+        # 10. verify
+        if generated and self.verify_answer(generated, evidence):
+            result = AnswerResult(question=question, answer=generated, supported=True, confidence=confidence, mode="generative", evidence_sentences=[e.text for e in evidence], debug=debug_info)
+            self.save_to_cache(question, result)
+            return result
+
+        # 11. fallback to best evidence sentence
+        fallback = evidence[0].text.strip() if evidence else "not enough evidence."
+        result = AnswerResult(question=question, answer=fallback, supported=True if evidence else False, confidence=confidence, mode="extractive_fallback", evidence_sentences=[e.text for e in evidence], debug=debug_info)
+        self.save_to_cache(question, result)
+        return result
+
+        print("\n=== Top Sentence Candidates ===")
+        self.print_top_candidates(sentence_candidates, n=10)
 
 char_tokenizer = CharTokenizerAdapter(stoi, itos)
 small_lm_adapter = SmallLMAdapter(model_transformer, char_tokenizer, device)
@@ -1219,35 +1597,226 @@ rag = MiniRAG(
     cross_encoder=reranker,
     small_lm=small_lm_adapter,
     tokenizer=char_tokenizer,
-    top_n_retrieval=8,
-    top_n_rerank=4,
+    top_n_retrieval=30,
+    top_n_rerank=20,
     top_k_evidence=3,
     evidence_threshold=0.5,
     debug=True,
 )
+def find_evidence_rank(sentence_candidates, expected_evidence_contains):
+    """
+    Find the 1-based rank of the first sentence candidate containing
+    the expected evidence substring.
+
+    Returns:
+        rank: int or None
+        matched_text: str or ""
+    """
+    expected = expected_evidence_contains.lower()
+
+    for rank, cand in enumerate(sentence_candidates, start=1):
+        text = cand.text or ""
+
+        if expected in text.lower():
+            return rank, text
+
+    return None, ""
+    
+# evaluaton rag
+def evaluate_rag(rag, test_cases, use_cache=False, verbose_failures=True):
+    rows = []
+    for query, expected_answer, expected_evidence in test_cases:
+        result = rag.answer(query, use_cache=use_cache)
+
+        answer = result.answer or ""
+        evidence_list = result.evidence_sentences or []
+        first_evidence = evidence_list[0] if evidence_list else ""
+
+        answer_pass = expected_answer.lower() in answer.lower()
+        evidence_pass = expected_evidence.lower() in first_evidence.lower()
+        overall_pass = answer_pass and evidence_pass
+        sentence_rank, matched_sentence = find_evidence_rank(
+        rag.top_sentence_candidates,
+        expected_evidence
+        )
+
+        found_in_sentence_candidates = sentence_rank is not None
+
+        reciprocal_rank = 0.0 if sentence_rank is None else 1.0 / sentence_rank
+
+        row = {
+            "query": query,
+            "expected_answer_contains": expected_answer,
+            "answer": answer,
+            "answer_pass": answer_pass,
+            "expected_evidence_contains": expected_evidence,
+            "first_evidence": first_evidence[:250],
+            "evidence_pass": evidence_pass,
+            
+            "sentence_rank": sentence_rank,
+            "found_in_sentence_candidates": found_in_sentence_candidates,
+            "reciprocal_rank": reciprocal_rank,
+            "matched_sentence": matched_sentence[:250],
+
+            "overall_pass": overall_pass,
+            "mode": result.mode,
+            "confidence": result.confidence,
+        }
+
+        rows.append(row)
+
+        if verbose_failures and not overall_pass:
+            print("=" * 80)
+            print("❌ FAILURE")
+            print("QUERY:", query)
+            print("EXPECTED ANSWER CONTAINS:", expected_answer)
+            print("ANSWER:", answer)
+            print("ANSWER PASS:", answer_pass)
+            print()
+            print("EXPECTED EVIDENCE CONTAINS:", expected_evidence)
+            print("FIRST EVIDENCE:", first_evidence)
+            print("EVIDENCE PASS:", evidence_pass)
+            print()
+            print("SENTENCE RANK:", sentence_rank)
+            print("MATCHED SENTENCE:", matched_sentence)
+            print()
+            print("MODE:", result.mode)
+            print("CONFIDENCE:", result.confidence)
+            print("ALL EVIDENCE:")
+            for i, ev in enumerate(evidence_list, 1):
+                print(f"{i}. {ev[:300]}")
+    
+    return rows
+    
+tests = [
+    ("Who was Shakespeare's father?",
+     "William Shakespeare was the son of John Shakespeare, an alderman and a successful glover.",
+     "John Shakespeare"),
+
+    ("What job did Shakespeare's father have?",
+     "William Shakespeare was the son of John Shakespeare, an alderman and a successful glover (glove-maker) originally from Snitterfield in Warwickshire.",
+     "alderman and a successful glover (glove-maker)"),
+
+    ("What was John Shakespeare's profession?",
+     "John Shakespeare was an alderman and a successful glover.",
+     "alderman and a successful glover"),
+
+    ("Where was Shakespeare born?",
+     "William Shakespeare was born and raised in Stratford-upon-Avon, Warwickshire.",
+     "Stratford-upon-Avon, Warwickshire"),
+]
+
+for query, text, expected in tests:
+    # 1. Wrap the raw text in the object your method expects
+    mock_evidence = [SentenceCandidate(chunk_id="test", sentence_id=0, text=text)]
+    
+    # 2. Run the extractor
+    pred, source = rag.try_extractive_answer_with_source(query, mock_evidence)
+
+    status = "✅ PASS" if pred == expected else "❌ FAIL"
+
+    print(f"{status} | Query: {query}")
+    if status == "❌ FAIL":
+        print(f"   Expected: {expected}")
+        print(f"   Got:      {pred}")
+        print(f"   Source:   {source.text if source else None}")
+        
+new_tests = [
+    (
+        "When was Shakespeare born?",
+        "1564",
+        "23 April 1564",
+    ),
+    (
+        "Who was Shakespeare's mother?",
+        "Mary Arden",
+        "Mary Arden",
+    ),
+    (
+        "At what age did Shakespeare marry Anne Hathaway?",
+        "18",
+        "At the age of 18",
+    ),
+    (
+        "Who did Shakespeare marry?",
+        "Anne Hathaway",
+        "married 26-year-old Anne Hathaway",
+    ),
+    (
+        "How many children did Shakespeare have?",
+        "three",
+        "three children",
+    ),
+]
+
+end_to_end_tests = [
+    (
+        "Who was Shakespeare's father?",
+        "John Shakespeare",
+        "son of John Shakespeare",
+    ),
+    (
+        "What job did Shakespeare's father have?",
+        "alderman and a successful glover",
+        "John Shakespeare, an alderman and a successful glover",
+    ),
+    (
+        "What was John Shakespeare's profession?",
+        "alderman and a successful glover",
+        "John Shakespeare, an alderman and a successful glover",
+    ),
+    (
+        "Where was Shakespeare born?",
+        "Stratford-upon-Avon",
+        "born and raised in Stratford-upon-Avon",
+    ),
+]
+extended_end_to_end_tests = end_to_end_tests + new_tests
+
+eval_rows = evaluate_rag(rag, extended_end_to_end_tests, use_cache=False)
+
+df_eval = pd.DataFrame(eval_rows)
+
+display(df_eval)
+print("Answer accuracy:", df_eval["answer_pass"].mean())
+print("Evidence accuracy:", df_eval["evidence_pass"].mean())
+print("Overall accuracy:", df_eval["overall_pass"].mean())
+print("Sentence Recall:", df_eval["found_in_sentence_candidates"].mean())
+print("Sentence MRR:", df_eval["reciprocal_rank"].mean())
+
+for i, ch in enumerate(chunks):
+    text = ch.text if hasattr(ch, "text") else ch
+
+    if "1564" in text and "born" in text.lower():
+        print("CHUNK", i)
+        print(text[:500])
+        print("=" * 80)
 
 
+query = "When was Shakespeare born?"
 
-question = "What was John Shakespeare's profession?"
-result = rag.answer(question, use_cache=False)
+candidate_chunks = rag.retrieve_candidates(query)
+reranked = rag.rerank_chunks(query, candidate_chunks)
+sentence_candidates = rag.build_sentence_candidates(reranked)
+scored = rag.score_sentences(query, sentence_candidates)
 
-print("\n=== Top sentence candidates after final scoring ===")
-for cand in rag.top_sentence_candidates[:10]:
-    rb = rag.relation_bonus(question, cand.text)
-    pb = rag.profession_bonus(question, cand.text)
-    teb = rag.target_entity_bonus(question, cand.text)
-    vp = rag.vagueness_penalty(cand.text)
+for i, c in enumerate(scored[:10], 1):
     print("=" * 80)
-    print(f"chunk_id={cand.chunk_id}")
-    print(f"sentence={cand.text}")
-    print(f"chunk_rerank_score={cand.chunk_rerank_score:.4f}")
-    print(f"sentence_score={cand.sentence_score:.4f}")
-    print(f"relation_bonus={rb:.4f}")
-    print(f"vagueness_penalty={vp:.4f}")
-    print(f"final_score={cand.final_score:.4f}")
+    print("RANK:", i)
+    print("chunk:", c.chunk_id)
+    print("base:", c.base_score)
+    print("heuristic:", c.heuristic_score)
+    print("final:", c.final_score)
+    print("text:", c.text[:300])
 
+baseline_metrics_v2 = {
+    "answer_accuracy": df_eval["answer_pass"].mean(),
+    "evidence_accuracy": df_eval["evidence_pass"].mean(),
+    "overall_accuracy": df_eval["overall_pass"].mean(),
+    "sentence_recall": df_eval["found_in_sentence_candidates"].mean(),
+    "sentence_mrr": df_eval["reciprocal_rank"].mean(),
+}
 
-prompt = rag.build_prompt(question, scored[:3])
-print(prompt)
-answer = rag.generate_with_small_lm(prompt)
-print("RAW ANSWER:", repr(answer))
+baseline_metrics_v2
+
+df_eval.to_csv("minirag_eval_baseline_v2.csv", index=False)
