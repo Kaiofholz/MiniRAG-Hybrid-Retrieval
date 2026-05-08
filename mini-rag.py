@@ -897,7 +897,7 @@ class MiniRAG:
             return False
         return evidence[0].final_score >= self.evidence_threshold
         
-    def extract_date_answer(self,questoin: str,text: str):
+    def extract_date_answer(self, questoin: str, text: str):
     # Prefer full date: c. 23 April 1564 / 23 April 1564
         full_date = re.search(
             r"\b(?:c\.\s*)?\d{1,2}\s+[A-Z][a-z]+\s+\d{4}\b",
