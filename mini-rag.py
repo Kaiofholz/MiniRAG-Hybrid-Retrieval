@@ -337,7 +337,7 @@ plt.show()
 
 
 # =========================================================
-# 18. RAG - definition of chunks
+# 13. RAG - definition of chunks
 # =========================================================
 
 def chunk_text(text, chunk_size=200, overlap=50):
@@ -361,7 +361,7 @@ print(chunks[0])
 
 
 # =========================================================
-# 19. RAG - MiniLM Embeddings
+# 14. RAG - MiniLM Embeddings
 # =========================================================
 import faiss
 import numpy as np
@@ -387,7 +387,7 @@ ivf_index.train(chunk_embeddings)
 ivf_index.add(chunk_embeddings)
 
 # =========================================================
-# 19.1 RAG - BM25 Lexical Retriever
+# 15 RAG - BM25 Lexical Retriever
 # =========================================================
 from rank_bm25 import BM25Okapi
 import re
@@ -399,7 +399,7 @@ tokenized_chunks = [simple_tokenize(chunk) for chunk in chunks]
 bm25 = BM25Okapi(tokenized_chunks)
 
 # =========================================================
-# 19.2 RAG - BM25 Retrieval
+# 16 RAG - BM25 Retrieval
 # =========================================================
 def retrieve_bm25(query, k=10, **kwargs):
     query_tokens = simple_tokenize(query)
@@ -413,7 +413,7 @@ def retrieve_bm25(query, k=10, **kwargs):
     return results
 
 # =========================================================
-# 20.4 RAG - Union of Dense + BM25 candidates
+# 17 RAG - Union of Dense + BM25 candidates
 # =========================================================
 def union_candidates(dense_results, bm25_results):
     merged = {}
@@ -426,13 +426,13 @@ def union_candidates(dense_results, bm25_results):
 
     return [(chunk_text, chunk_id) for chunk_id, chunk_text in merged.items()]
 # =========================================================
-# RAG - Reranker (Cross Encoder)
+# 18 RAG - Reranker (Cross Encoder)
 # =========================================================
 from sentence_transformers import CrossEncoder
 
 reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
 # =========================================================
-# 20.5 RAG - Rerank union candidates
+# 19 RAG - Rerank union candidates
 # =========================================================
 def rerank_union(query, unioned_candidates):
     """
@@ -492,7 +492,7 @@ for chunk_text, score, chunk_id in reranked_union[:5]:
 
 
 # =========================================================
-# 21. RAG - Prompt Construction
+# 20 RAG - Prompt Construction
 # =========================================================
 def build_rag_prompt(query, reranked_results, top_k=3):
     selected = reranked_results[:top_k]
