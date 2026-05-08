@@ -7,18 +7,20 @@ import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
 # For example, running this (by clicking run or pressing Shift+Enter) will list all files under the input directory
 
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any, List
 from pathlib import Path
+from typing import Optional, Dict, Any, List
 import math
+import re
+
+import faiss
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import matplotlib.pyplot as plt
-import torch.nn.functional as F
-import faiss
-import numpy as np
 from rank_bm25 import BM25Okapi
-import re
+from sentence_transformers import SentenceTransformer, CrossEncoder
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print("Using device:", device)
 # =========================================================
@@ -363,10 +365,6 @@ print(chunks[0])
 # =========================================================
 # 14. RAG - MiniLM Embeddings
 # =========================================================
-import faiss
-import numpy as np
-
-from sentence_transformers import SentenceTransformer
 
 embed_model = SentenceTransformer("all-MiniLM-L6-v2")
 
@@ -389,8 +387,6 @@ ivf_index.add(chunk_embeddings)
 # =========================================================
 # 15 RAG - BM25 Lexical Retriever
 # =========================================================
-from rank_bm25 import BM25Okapi
-import re
 
 def simple_tokenize(text):
     return re.findall(r"\w+", text.lower())
@@ -428,7 +424,6 @@ def union_candidates(dense_results, bm25_results):
 # =========================================================
 # 18 RAG - Reranker (Cross Encoder)
 # =========================================================
-from sentence_transformers import CrossEncoder
 
 reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
 # =========================================================
