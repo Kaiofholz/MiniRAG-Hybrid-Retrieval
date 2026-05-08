@@ -568,7 +568,7 @@ class SmallLMAdapter:
         """
         self.model.eval()
         self.model = self.model.to(self.device)
-        idx = torch.tensor([input_ids], dtype=torch.long, device=device)
+        idx = torch.tensor([input_ids], dtype=torch.long, device=self.device)
 
         with torch.no_grad():
             # If your original model.generate only accepts (idx, max_new_tokens),
