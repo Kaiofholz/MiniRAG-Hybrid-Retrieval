@@ -1775,7 +1775,7 @@ eval_rows = evaluate_rag(rag, extended_end_to_end_tests, use_cache=False)
 
 df_eval = pd.DataFrame(eval_rows)
 
-display(df_eval)
+print(df_eval.to_string(index=False))
 print("Answer accuracy:", df_eval["answer_pass"].mean())
 print("Evidence accuracy:", df_eval["evidence_pass"].mean())
 print("Overall accuracy:", df_eval["overall_pass"].mean())
