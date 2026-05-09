@@ -437,8 +437,6 @@ def rerank_union(query, unioned_candidates):
 
     reranked.sort(key=lambda x: x[1], reverse=True)
     return reranked
-        
-query = "What was John Shakespeare's profession?"
     
 def retrieve_ivf(query, k=10, **kwargs):
     query_vec = embed_model.encode([query], convert_to_numpy=True)
@@ -466,7 +464,7 @@ def demo_retrieval_pipeline(query: str = "What was John Shakespeare's profession
         print()
 
     unioned = union_candidates(dense_results, bm25_results)
-    reranked = rerank_union(query, unioned)
+
     print(f"\nNumber of unique union candidates: {len(unioned)}\n")
 
     reranked_union = rerank_union(query, unioned)
