@@ -4,7 +4,7 @@
 
 This is a learning-oriented Python project built to understand how retrieval-augmented question answering works beyond simple framework usage.
 
-The project focuses on retrieval quality, evidence selection, debugging, and extractive answer reliability.
+The project focuses on retrieval quality, evidence selection, debugging and extractive answer reliability.
 
 ## Core Components
 
