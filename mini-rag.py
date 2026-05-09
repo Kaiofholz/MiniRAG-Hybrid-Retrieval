@@ -1802,12 +1802,12 @@ if __name__ == "__main__":
 # =========================================================
 # 30. Save evaluation results
 # =========================================================
-baseline_metrics_v2 = {
-    "answer_accuracy": df_eval["answer_pass"].mean(),
-    "evidence_accuracy": df_eval["evidence_pass"].mean(),
-    "overall_accuracy": df_eval["overall_pass"].mean(),
-    "sentence_recall": df_eval["found_in_sentence_candidates"].mean(),
-    "sentence_mrr": df_eval["reciprocal_rank"].mean(),
-}
+    baseline_metrics_v2 = {
+        "answer_accuracy": df_eval["answer_pass"].mean(),
+        "evidence_accuracy": df_eval["evidence_pass"].mean(),
+        "overall_accuracy": df_eval["overall_pass"].mean(),
+        "sentence_recall": df_eval["found_in_sentence_candidates"].mean(),
+        "sentence_mrr": df_eval["reciprocal_rank"].mean(),
+    }
 
-baseline_metrics_v2
+    baseline_metrics_v2
