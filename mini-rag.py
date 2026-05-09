@@ -1588,23 +1588,22 @@ class MiniRAG:
 # =========================================================
 # 26. Build MiniRAG instance
 # =========================================================
-char_tokenizer = CharTokenizerAdapter(stoi, itos)
-small_lm_adapter = SmallLMAdapter(model_transformer, char_tokenizer, device)
-
-
-
-rag = MiniRAG(
-    dense_retriever=dense_retriever,
-    bm25_retriever=bm25_retriever,
-    cross_encoder=reranker,
-    small_lm=small_lm_adapter,
-    tokenizer=char_tokenizer,
-    top_n_retrieval=30,
-    top_n_rerank=20,
-    top_k_evidence=3,
-    evidence_threshold=0.5,
-    debug=False,
-)
+def build_minirag():
+    char_tokenizer = CharTokenizerAdapter(stoi, itos)
+    small_lm_adapter = SmallLMAdapter(model_transformer, char_tokenizer, device)
+    
+    return MiniRAG(
+        dense_retriever=dense_retriever,
+        bm25_retriever=bm25_retriever,
+        cross_encoder=reranker,
+        small_lm=small_lm_adapter,
+        tokenizer=char_tokenizer,
+        top_n_retrieval=30,
+        top_n_rerank=20,
+        top_k_evidence=3,
+        evidence_threshold=0.5,
+        debug=False,
+    )
 # =========================================================
 # 27. Evaluation utilities
 # =========================================================
@@ -1712,21 +1711,6 @@ tests = [
      "William Shakespeare was born and raised in Stratford-upon-Avon, Warwickshire.",
      "Stratford-upon-Avon, Warwickshire"),
 ]
-
-for query, text, expected in tests:
-    # 1. Wrap the raw text in the object your method expects
-    mock_evidence = [SentenceCandidate(chunk_id="test", sentence_id=0, text=text)]
-    
-    # 2. Run the extractor
-    pred, source = rag.try_extractive_answer_with_source(query, mock_evidence)
-
-    status = "✅ PASS" if pred == expected else "❌ FAIL"
-
-    print(f"{status} | Query: {query}")
-    if status == "❌ FAIL":
-        print(f"   Expected: {expected}")
-        print(f"   Got:      {pred}")
-        print(f"   Source:   {source.text if source else None}")
         
 new_tests = [
     (
@@ -1780,43 +1764,41 @@ end_to_end_tests = [
 ]
 extended_end_to_end_tests = end_to_end_tests + new_tests
 
-eval_rows = evaluate_rag(rag, extended_end_to_end_tests, use_cache=False)
 
-df_eval = pd.DataFrame(eval_rows)
-
-print(df_eval.to_string(index=False))
-print("Answer accuracy:", df_eval["answer_pass"].mean())
-print("Evidence accuracy:", df_eval["evidence_pass"].mean())
-print("Overall accuracy:", df_eval["overall_pass"].mean())
-print("Sentence Recall:", df_eval["found_in_sentence_candidates"].mean())
-print("Sentence MRR:", df_eval["reciprocal_rank"].mean())
 # =========================================================
-# 29. Additional debugging for date/birth retrieval
+# 29. Run demo and evaluation
 # =========================================================
-for i, ch in enumerate(chunks):
-    text = ch.text if hasattr(ch, "text") else ch
+if __name__ == "__main__":
+    rag = build_minirag()
 
-    if "1564" in text and "born" in text.lower():
-        print("CHUNK", i)
-        print(text[:500])
-        print("=" * 80)
+    
+    for query, text, expected in tests:
+    # 1. Wrap the raw text in the object your method expects
+        mock_evidence = [SentenceCandidate(chunk_id="test", sentence_id=0, text=text)]
+    
+    # 2. Run the extractor
+        pred, source = rag.try_extractive_answer_with_source(query, mock_evidence)
 
+        status = "✅ PASS" if pred == expected else "❌ FAIL"
 
-query = "When was Shakespeare born?"
+        print(f"{status} | Query: {query}")
+        if status == "❌ FAIL":
+            print(f"   Expected: {expected}")
+            print(f"   Got:      {pred}")
+            print(f"   Source:   {source.text if source else None}")
+            
+    eval_rows = evaluate_rag(rag, extended_end_to_end_tests, use_cache=False)
+    
+    df_eval = pd.DataFrame(eval_rows)
+    
+    print(df_eval.to_string(index=False))
+    print("Answer accuracy:", df_eval["answer_pass"].mean())
+    print("Evidence accuracy:", df_eval["evidence_pass"].mean())
+    print("Overall accuracy:", df_eval["overall_pass"].mean())
+    print("Sentence Recall:", df_eval["found_in_sentence_candidates"].mean())
+    print("Sentence MRR:", df_eval["reciprocal_rank"].mean())
+    df_eval.to_csv("minirag_eval_baseline_v2.csv", index=False)
 
-candidate_chunks = rag.retrieve_candidates(query)
-reranked = rag.rerank_chunks(query, candidate_chunks)
-sentence_candidates = rag.build_sentence_candidates(reranked)
-scored = rag.score_sentences(query, sentence_candidates)
-
-for i, c in enumerate(scored[:10], 1):
-    print("=" * 80)
-    print("RANK:", i)
-    print("chunk:", c.chunk_id)
-    print("base:", c.base_score)
-    print("heuristic:", c.heuristic_score)
-    print("final:", c.final_score)
-    print("text:", c.text[:300])
 # =========================================================
 # 30. Save evaluation results
 # =========================================================
@@ -1829,5 +1811,3 @@ baseline_metrics_v2 = {
 }
 
 baseline_metrics_v2
-
-df_eval.to_csv("minirag_eval_baseline_v2.csv", index=False)
