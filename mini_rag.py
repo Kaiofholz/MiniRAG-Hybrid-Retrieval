@@ -326,7 +326,8 @@ ax1.set_ylabel("Loss")
 ax1.legend(loc="upper right")
 ax2 = ax1.twinx()
 plt.title("Transformer Training")
-plt.show()
+plt.savefig("training_loss.png", dpi=150, bbox_inches="tight")
+plt.close()
 
 
 
