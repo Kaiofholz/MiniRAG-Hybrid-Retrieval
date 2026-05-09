@@ -449,33 +449,35 @@ def retrieve_ivf(query, k=10, **kwargs):
         results.append((chunks[idx], float(distances[0][i]), int(idx)))
     return results
 
-dense_results = retrieve_ivf(query, k=10)
-bm25_results = retrieve_bm25(query, k=10)
+def demo_retrieval_pipeline(query: str = "What was John Shakespeare's profession?"):
+    dense_results = retrieve_ivf(query, k=10)
+    bm25_results = retrieve_bm25(query, k=10)
 
-print("=== Dense top-5 ===\n")
-for chunk_text, score, chunk_id in dense_results[:5]:
-    print(f"chunk_id={chunk_id}, dense_score={score:.4f}")
-    print(chunk_text[:220])
-    print()
+    print("=== Dense top-5 ===\n")
+    for chunk_text, score, chunk_id in dense_results[:5]:
+        print(f"chunk_id={chunk_id}, dense_score={score:.4f}")
+        print(chunk_text[:220])
+        print()
 
-print("\n=== BM25 top-5 ===\n")
-for chunk_text, score, chunk_id in bm25_results[:5]:
-    print(f"chunk_id={chunk_id}, bm25_score={score:.4f}")
-    print(chunk_text[:220])
-    print()
+    print("\n=== BM25 top-5 ===\n")
+    for chunk_text, score, chunk_id in bm25_results[:5]:
+        print(f"chunk_id={chunk_id}, bm25_score={score:.4f}")
+        print(chunk_text[:220])
+        print()
 
-unioned = union_candidates(dense_results, bm25_results)
+    unioned = union_candidates(dense_results, bm25_results)
 
-print(f"\nNumber of unique union candidates: {len(unioned)}\n")
+    print(f"\nNumber of unique union candidates: {len(unioned)}\n")
 
-reranked_union = rerank_union(query, unioned)
+    reranked_union = rerank_union(query, unioned)
 
-print("=== Reranked union top-5 ===\n")
-for chunk_text, score, chunk_id in reranked_union[:5]:
-    print(f"chunk_id={chunk_id}, rerank_score={score:.4f}")
-    print(chunk_text[:220])
-    print()
+    print("=== Reranked union top-5 ===\n")
+    for chunk_text, score, chunk_id in reranked_union[:5]:
+        print(f"chunk_id={chunk_id}, rerank_score={score:.4f}")
+        print(chunk_text[:220])
+        print()
 
+    return dense_results, bm25_results, unioned, reranked_union
 
 
 # =========================================================
