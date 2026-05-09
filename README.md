@@ -20,7 +20,7 @@ The project focuses on retrieval quality, evidence selection, debugging, and ext
 
 ## Data
 
-This project uses small sample text passages for retrieval experiments. No private, customer, or company data is included.
+This project uses small sample text passages for retrieval experiments. No private, customer or company data is included.
 
 ## How to Run
 
@@ -56,7 +56,7 @@ The script runs a small evaluation set and reports metrics such as:
 
 I built this project to understand the internal mechanisms of RAG systems instead of only using high-level frameworks.
 
-The main learning goal was to inspect how retrieval results are selected, reranked, scored, and used as evidence for question answering.
+The main learning goal was to inspect how retrieval results are selected, reranked, scored and used as evidence for question answering.
 
 ## Key Learnings
 
@@ -64,13 +64,13 @@ The main learning goal was to inspect how retrieval results are selected, rerank
 - Candidate quality strongly affects reranking quality.
 - Reranking can improve precision but cannot fully recover from weak initial retrieval.
 - Extractive answering can be more reliable than weak generation when grounding is important.
-- Debugging RAG requires inspecting chunks, sentences, scores, selected evidence, and failure cases.
+- Debugging RAG requires inspecting chunks, sentences, scores, selected evidence and failure cases.
 
 ## Current Limitations
 
 - This is not a production-ready RAG system.
 - The small experimental Transformer generator is weak and mainly used for learning.
-- The current focus is retrieval quality, evidence selection, and explainability rather than deployment.
+- The current focus is retrieval quality, evidence selection and explainability rather than deployment.
 - The code is still being improved as part of an ongoing learning process.
 
 ## Next Steps
