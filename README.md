@@ -30,6 +30,21 @@ Both versions keep the same high-level RAG structure:
 
 Dense retrieval + BM25 lexical retrieval → candidate union → cross-encoder reranking → sentence-level evidence scoring → evidence selection → extractive question answering.
 
+## What Changed in the Qdrant Version
+
+The original `mini_rag.py` version uses FAISS as a local dense retrieval index.
+
+The updated `mini_rag_qdrant.py` version replaces the FAISS dense retriever with a Qdrant-backed vector database retriever. SentenceTransformer embeddings are still generated locally, but the vectors and chunk payloads are stored in a Qdrant collection.
+
+The rest of the RAG pipeline remains intentionally similar:
+
+- BM25 lexical retrieval is still used as the sparse retrieval component.
+- Dense and lexical results are still merged through candidate union.
+- A cross-encoder still reranks the unioned candidates.
+- Sentence-level scoring, evidence selection, and extractive answering remain unchanged.
+
+This makes it easier to compare how the dense retrieval backend changes while keeping the rest of the pipeline stable.
+
 ## Data
 
 This project uses small sample text passages for retrieval experiments. No private, customer, or company data is included.
