@@ -90,22 +90,22 @@ Example query:
 
 ```text
 What was John Shakespeare's profession?
-
+```
 Expected behavior:
 
 ```text
 The system retrieves candidate chunks using dense retrieval and BM25, merges the candidates, reranks them with a cross-encoder, selects evidence sentences, and returns an extractive answer grounded in the selected evidence.
-
+```
 Example answer:
 
 ```text
 alderman and a successful glover
-
+```
 Example evidence:
 
 ```text
 William Shakespeare was the son of John Shakespeare, an alderman and a successful glover...
-
+```
 The exact output may vary slightly depending on model versions, local environment, and retrieval scores.
 
 ## Why I Built This
