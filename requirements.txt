@@ -1,3 +1,4 @@
+qdrant-client
 numpy
 torch
 matplotlib
