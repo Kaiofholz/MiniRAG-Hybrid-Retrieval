@@ -20,7 +20,7 @@ The project focuses on retrieval quality, evidence selection, debugging, and ext
 
 ## Data
 
-This project uses small sample text passages for retrieval experiments. No private, customer or company data is included.
+This project uses small sample text passages for retrieval experiments. No private, customer, or company data is included.
 
 ## How to Run
 
