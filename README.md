@@ -16,34 +16,15 @@ The project focuses on retrieval quality, evidence selection, debugging, and ext
 - Extractive answer generation
 - Confidence scoring based on selected evidence
 - Debugging outputs for retrieved chunks, ranked sentences, selected evidence, and failure cases
+- Small experimental character-level Transformer generator for learning purposes
 
-  ## This project uses small sample text passages for retrieval experiments. No private, customer, or company data is included.
+## Data
 
-## Why I Built This
+This project uses small sample text passages for retrieval experiments. No private, customer, or company data is included.
 
-I built this project to understand the internal mechanisms of RAG systems instead of only using high-level frameworks.
+## How to Run
 
-The main learning goal was to inspect how retrieval results are selected, reranked, scored, and used as evidence for question answering.
+Install dependencies:
 
-## Key Learnings
-
-- Dense retrieval and BM25 capture different relevance signals.
-- Candidate quality strongly affects reranking quality.
-- Reranking can improve precision but cannot fully recover from weak initial retrieval.
-- Extractive answering can be more reliable than weak generation when grounding is important.
-- Debugging RAG requires inspecting chunks, sentences, scores, selected evidence, and failure cases.
-
-## Current Limitations
-
-- This is not a production-ready RAG system.
-- The small experimental Transformer generator is weak and mainly used for learning.
-- The current focus is retrieval quality, evidence selection, and explainability rather than deployment.
-- The code is still being improved as part of an ongoing learning process.
-
-## Next Steps
-
-- Add Qdrant as a vector database backend.
-- Improve project structure and modularity.
-- Add clearer evaluation examples.
-- Explore hybrid search and metadata filtering.
-- Build a small demo interface or API.
+```bash
+pip install -r requirements.txt
