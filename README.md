@@ -132,6 +132,7 @@ The main learning goal was to inspect how retrieval results are selected, rerank
 ## Next Steps
 
 - Compare FAISS-based local retrieval with Qdrant-backed vector retrieval.
+- Add a small `compare_retrievers.py` script to inspect retrieval overlap, ranking differences, and score behavior.
 - Improve project structure and modularity.
 - Add clearer evaluation examples.
 - Explore hybrid search and metadata filtering.
