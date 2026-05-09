@@ -365,7 +365,7 @@ chunk_embeddings = embed_model.encode(chunks, convert_to_numpy=True)
 print("Embedding shape:", chunk_embeddings.shape)
 
 d = chunk_embeddings.shape[1]
-nlist = 50  # number of clusters
+nlist = min(50, max(1, len(chunks)))  # number of clusters
 
 quantizer = faiss.IndexFlatL2(d)
 ivf_index = faiss.IndexIVFFlat(quantizer, d, nlist, faiss.METRIC_L2)
@@ -1692,7 +1692,7 @@ def evaluate_rag(rag, test_cases, use_cache=False, verbose_failures=True):
     
     return rows
 # =========================================================
-# 28. Test cases and evaluation run
+# 28. Test cases
 # =========================================================    
 tests = [
     ("Who was Shakespeare's father?",
@@ -1797,17 +1797,3 @@ if __name__ == "__main__":
     print("Overall accuracy:", df_eval["overall_pass"].mean())
     print("Sentence Recall:", df_eval["found_in_sentence_candidates"].mean())
     print("Sentence MRR:", df_eval["reciprocal_rank"].mean())
-    df_eval.to_csv("minirag_eval_baseline_v2.csv", index=False)
-
-# =========================================================
-# 30. Save evaluation results
-# =========================================================
-    baseline_metrics_v2 = {
-        "answer_accuracy": df_eval["answer_pass"].mean(),
-        "evidence_accuracy": df_eval["evidence_pass"].mean(),
-        "overall_accuracy": df_eval["overall_pass"].mean(),
-        "sentence_recall": df_eval["found_in_sentence_candidates"].mean(),
-        "sentence_mrr": df_eval["reciprocal_rank"].mean(),
-    }
-
-    baseline_metrics_v2
