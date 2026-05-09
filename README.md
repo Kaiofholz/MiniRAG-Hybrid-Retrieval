@@ -18,7 +18,6 @@ The project focuses on retrieval quality, evidence selection, debugging, and ext
 - Confidence scoring based on selected evidence
 - Debugging outputs for retrieved chunks, ranked sentences, selected evidence, and failure cases
 - Small experimental character-level Transformer generator for learning purposes
-- Qdrant-backed vector database retrieval in the updated version
   
 ## Project Versions
 
