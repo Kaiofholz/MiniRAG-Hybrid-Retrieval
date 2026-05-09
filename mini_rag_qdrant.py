@@ -357,7 +357,7 @@ print(chunks[0])
 
 
 # =========================================================
-# 14. RAG - MiniLM Embeddings
+# 14. RAG - MiniLM Embeddings + Qdrant Vector Backend
 # =========================================================
 embed_model = SentenceTransformer("all-MiniLM-L6-v2")
 
@@ -405,6 +405,8 @@ bm25 = BM25Okapi(tokenized_chunks)
 # 16 RAG - BM25 Retrieval
 # =========================================================
 def retrieve_bm25(query, k=10, **kwargs):
+    k = kwargs.get("top_k", k)
+    
     query_tokens = simple_tokenize(query)
     scores = bm25.get_scores(query_tokens)
 
@@ -454,6 +456,7 @@ def rerank_union(query, unioned_candidates):
     return reranked
     
 def retrieve_qdrant(query, k=10, **kwargs):
+    k = kwargs.get("top_k", k)
     query_vec = embed_model.encode([query], convert_to_numpy=True)[0]
 
     search_results = qdrant_client.query_points(
@@ -477,7 +480,7 @@ def demo_retrieval_pipeline(query: str = "What was John Shakespeare's profession
     dense_results = retrieve_qdrant(query, k=10)
     bm25_results = retrieve_bm25(query, k=10)
 
-    print("=== Qdrant dense ===\n")
+    print("=== Qdrant dense top-5 ===\n")
     for chunk_text, score, chunk_id in dense_results[:5]:
         print(f"chunk_id={chunk_id}, dense_score={score:.4f}")
         print(chunk_text[:220])
