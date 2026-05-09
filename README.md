@@ -10,6 +10,7 @@ The project focuses on retrieval quality, evidence selection, debugging, and ext
 
 - Dense retrieval with sentence-transformer embeddings
 - BM25 lexical retrieval
+- Optional Qdrant-backed dense retrieval backend for vector database integration
 - Candidate union from dense and lexical retrieval results
 - Cross-encoder reranking
 - Sentence-level evidence scoring
@@ -75,7 +76,7 @@ The main learning goal was to inspect how retrieval results are selected, rerank
 
 ## Next Steps
 
-- Add Qdrant as a vector database backend.
+- Compare FAISS-based local retrieval with Qdrant-backed vector retrieval.
 - Improve project structure and modularity.
 - Add clearer evaluation examples.
 - Explore hybrid search and metadata filtering.
