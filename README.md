@@ -10,7 +10,7 @@ The project focuses on retrieval quality, evidence selection, debugging, and ext
 
 - Dense retrieval with sentence-transformer embeddings
 - BM25 lexical retrieval
-- Candidate union from dense and lexical retrievers
+- Candidate union from dense and lexical retrieval results
 - Cross-encoder reranking
 - Sentence-level evidence scoring
 - Extractive answer generation
