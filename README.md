@@ -18,6 +18,18 @@ The project focuses on retrieval quality, evidence selection, debugging, and ext
 - Confidence scoring based on selected evidence
 - Debugging outputs for retrieved chunks, ranked sentences, selected evidence, and failure cases
 - Small experimental character-level Transformer generator for learning purposes
+- Qdrant-backed vector database retrieval in the updated version
+  
+## Project Versions
+
+This repository contains two versions of the MiniRAG pipeline:
+
+- `mini_rag.py`: Original version using local FAISS-based dense retrieval.
+- `mini_rag_qdrant.py`: Updated version using Qdrant as the vector database backend for dense retrieval.
+
+Both versions keep the same high-level RAG structure:
+
+Dense retrieval + BM25 lexical retrieval → candidate union → cross-encoder reranking → sentence-level evidence scoring → evidence selection → extractive question answering.
 
 ## Data
 
@@ -33,8 +45,13 @@ pip install -r requirements.txt
 
 Run the project from the repository root:
 
+Run the original FAISS-based version:
 ```bash
 python mini_rag.py
+```
+Run the Qdrant-backed version:
+```bash
+python mini_rag_qdrant.py
 ```
 
 The sample corpus should be located at:
