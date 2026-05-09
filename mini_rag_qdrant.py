@@ -4,7 +4,6 @@ from typing import Optional, Dict, Any, List
 import math
 import re
 
-import faiss
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -475,10 +474,10 @@ def retrieve_qdrant(query, k=10, **kwargs):
     return results
 
 def demo_retrieval_pipeline(query: str = "What was John Shakespeare's profession?"):
-    dense_results = retrieve_ivf(query, k=10)
+    dense_results = retrieve_qdrant(query, k=10)
     bm25_results = retrieve_bm25(query, k=10)
 
-    print("=== Dense top-5 ===\n")
+    print("=== Qdrant dense ===\n")
     for chunk_text, score, chunk_id in dense_results[:5]:
         print(f"chunk_id={chunk_id}, dense_score={score:.4f}")
         print(chunk_text[:220])
