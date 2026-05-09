@@ -1,11 +1,3 @@
-# This Python 3 environment comes with many helpful analytics libraries installed
-
-import numpy as np # linear algebra
-import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
-
-# Input data files are available in the read-only "../input/" directory
-# For example, running this (by clicking run or pressing Shift+Enter) will list all files under the input directory
-
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Dict, Any, List
@@ -906,7 +898,7 @@ class MiniRAG:
             return False
         return evidence[0].final_score >= self.evidence_threshold
         
-    def extract_date_answer(self, questoin: str, text: str):
+    def extract_date_answer(self, question: str, text: str):
     # Prefer full date: c. 23 April 1564 / 23 April 1564
         full_date = re.search(
             r"\b(?:c\.\s*)?\d{1,2}\s+[A-Z][a-z]+\s+\d{4}\b",
@@ -1593,9 +1585,6 @@ class MiniRAG:
         result = AnswerResult(question=question, answer=fallback, supported=True if evidence else False, confidence=confidence, mode="extractive_fallback", evidence_sentences=[e.text for e in evidence], debug=debug_info)
         self.save_to_cache(question, result)
         return result
-
-        print("\n=== Top Sentence Candidates ===")
-        self.print_top_candidates(sentence_candidates, n=10)
 # =========================================================
 # 26. Build MiniRAG instance
 # =========================================================
@@ -1614,7 +1603,7 @@ rag = MiniRAG(
     top_n_rerank=20,
     top_k_evidence=3,
     evidence_threshold=0.5,
-    debug=True,
+    debug=False,
 )
 # =========================================================
 # 27. Evaluation utilities
