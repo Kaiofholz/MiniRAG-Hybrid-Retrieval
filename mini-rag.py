@@ -466,7 +466,7 @@ def demo_retrieval_pipeline(query: str = "What was John Shakespeare's profession
         print()
 
     unioned = union_candidates(dense_results, bm25_results)
-
+    reranked = rerank_union(query, unioned)
     print(f"\nNumber of unique union candidates: {len(unioned)}\n")
 
     reranked_union = rerank_union(query, unioned)
@@ -503,7 +503,6 @@ Answer:"""
 
     return prompt
     
-reranked = rerank_union(query, unioned)
 # =========================================================
 # 21. Retriever wrapper classes
 # =========================================================
@@ -1771,6 +1770,7 @@ extended_end_to_end_tests = end_to_end_tests + new_tests
 # 29. Run demo and evaluation
 # =========================================================
 if __name__ == "__main__":
+    demo_retrieval_pipeline("What was John Shakespeare's profession?")
     rag = build_minirag()
 
     
