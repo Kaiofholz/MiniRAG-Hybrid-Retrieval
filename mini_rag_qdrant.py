@@ -13,6 +13,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer, CrossEncoder
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams, PointStruct
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print("Using device:", device)
 # =========================================================
@@ -358,24 +360,37 @@ print(chunks[0])
 # =========================================================
 # 14. RAG - MiniLM Embeddings
 # =========================================================
-
 embed_model = SentenceTransformer("all-MiniLM-L6-v2")
 
 chunk_embeddings = embed_model.encode(chunks, convert_to_numpy=True)
 
 print("Embedding shape:", chunk_embeddings.shape)
 
-d = chunk_embeddings.shape[1]
-nlist = min(50, max(1, len(chunks)))  # number of clusters
+QDRANT_COLLECTION_NAME = "minirag_chunks"
+qdrant_client = QdrantClient(":memory:")
+qdrant_client.create_collection(
+    collection_name=QDRANT_COLLECTION_NAME,
+    vectors_config=VectorParams(
+        size=chunk_embeddings.shape[1],
+        distance=Distance.COSINE,
+    ),
+)
 
-quantizer = faiss.IndexFlatL2(d)
-ivf_index = faiss.IndexIVFFlat(quantizer, d, nlist, faiss.METRIC_L2)
+points = [
+    PointStruct(
+        id=i,
+        vector=chunk_embeddings[i].tolist(),
+        payload={"text": chunks[i],
+                 "chunk_id": i,
+        },
+    )
+    for i in range(len(chunks))
+]
 
-# train the IVF index on your embeddings
-ivf_index.train(chunk_embeddings)
-
-# add vectors
-ivf_index.add(chunk_embeddings)
+qdrant_client.upsert(
+    collection_name=QDRANT_COLLECTION_NAME,
+    points=points,
+)
 
 # =========================================================
 # 15 RAG - BM25 Lexical Retriever
@@ -439,13 +454,24 @@ def rerank_union(query, unioned_candidates):
     reranked.sort(key=lambda x: x[1], reverse=True)
     return reranked
     
-def retrieve_ivf(query, k=10, **kwargs):
-    query_vec = embed_model.encode([query], convert_to_numpy=True)
-    distances, indices = ivf_index.search(query_vec, k)
+def retrieve_qdrant(query, k=10, **kwargs):
+    query_vec = embed_model.encode([query], convert_to_numpy=True)[0]
+
+    search_results = qdrant_client.query_points(
+        collection_name=QDRANT_COLLECTION_NAME,
+        query=query_vec.tolist(),
+        limit=k,
+    )
 
     results = []
-    for i, idx in enumerate(indices[0]):
-        results.append((chunks[idx], float(distances[0][i]), int(idx)))
+    for point in search_results.points:
+        payload = point.payload or {}
+        chunk_text = payload.get("text", "")
+        chunk_id = payload.get("chunk_id", point.id)
+        score = float(point.score)
+
+        results.append((chunk_text, score, int(chunk_id)))
+
     return results
 
 def demo_retrieval_pipeline(query: str = "What was John Shakespeare's profession?"):
@@ -513,7 +539,7 @@ class RetrieverWrapper:
         # but we only pass 'question' to your original function.
         return self.search_func(question, **kwargs)
 # Wrap your functions
-dense_retriever = RetrieverWrapper(retrieve_ivf)
+dense_retriever = RetrieverWrapper(retrieve_qdrant)
 bm25_retriever = RetrieverWrapper(retrieve_bm25)
 # =========================================================
 # 22. Character tokenizer adapter for the small Transformer
