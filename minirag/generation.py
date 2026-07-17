@@ -1,3 +1,4 @@
+import re
 class RealLLMGenerator:
     def __init__(self, llm_generate_fn, llm_cache):
         self.llm_generate_fn = llm_generate_fn
