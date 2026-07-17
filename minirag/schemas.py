@@ -1,3 +1,7 @@
+from dataclasses import dataclass, field
+from typing import Optional, Dict, Any,List
+import pandas as pd
+
 @dataclass
 class RetrievedChunk:
     chunk_id: str
