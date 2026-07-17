@@ -3,7 +3,6 @@ from dataclasses import dataclass, field
 from typing import Optional, Dict, Any,List
 import pandas as pd
 
->>>>>>> a655ccb637a017f92c710ddd3fc8efd3d8dd1605
 @dataclass
 class RetrievedChunk:
     chunk_id: str
