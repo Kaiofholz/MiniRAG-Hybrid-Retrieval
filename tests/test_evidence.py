@@ -1,5 +1,5 @@
 from minirag.evidence import EvidenceSelector
-from minirag.schemas import SentenceCandidate
+from minirag.schemas import SentenceCandidate, EvidenceSelectionResult
 
 
 def test_evidence_selector_selects_strong_candidates():

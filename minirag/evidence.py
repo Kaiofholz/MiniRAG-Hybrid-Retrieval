@@ -1,5 +1,5 @@
 from typing import List
-from minirag.schemas import SentenceCandidate, RetrievedChunk
+from minirag.schemas import SentenceCandidate, RetrievedChunk, EvidenceSelectionResult
 class EvidenceSelector:
     def __init__(self, evidence_threshold, top_k_evidence):
         self.evidence_threshold = evidence_threshold
