@@ -22,9 +22,23 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest pandas numpy
 
-      - name: Run import test
+      - name: Run package import test
         run: |
-          python -c "from minirag.schemas import AnswerResult, RetrievedChunk, SentenceCandidate; print('import ok')"
+          python - <<'PY'
+          import minirag.schemas
+          import minirag.cache
+          import minirag.formatting
+          import minirag.routing
+          import minirag.generation
+          import minirag.retrieval
+          import minirag.evidence
+          import minirag.extraction
+          import minirag.answering
+          import minirag.evaluation
+          import minirag.factory
+
+          print("all module imports ok")
+          PY
 
       - name: Compile package
         run: |
