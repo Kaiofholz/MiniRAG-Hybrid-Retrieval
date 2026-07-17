@@ -1,3 +1,6 @@
+from typing import List
+from minirag.schemas import RetrievedChunk, RetrievalResult
+
 class RetrieverWrapper:
     def __init__(self, search_func):
         self.search_func = search_func

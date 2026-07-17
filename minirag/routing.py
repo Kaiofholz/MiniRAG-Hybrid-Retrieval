@@ -1,3 +1,4 @@
+from minirag.schemas import RouteResult
 class QueryRouter:
     def __init__(self):
         pass
