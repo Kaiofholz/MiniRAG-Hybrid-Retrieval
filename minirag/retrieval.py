@@ -5,9 +5,6 @@ class RetrieverWrapper:
         # We accept 'top_k' here so the code doesn't crash, 
         # but we only pass 'question' to your original function.
         return self.search_func(question, **kwargs)
-# Wrap your functions
-dense_retriever = RetrieverWrapper(search_dense_backend)
-bm25_retriever = RetrieverWrapper(search_bm25_backend)
 
 class RetrievalEngine:
     def __init__(
