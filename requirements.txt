@@ -6,3 +6,4 @@ sentence-transformers
 faiss-cpu
 rank-bm25
 pandas
+pytest

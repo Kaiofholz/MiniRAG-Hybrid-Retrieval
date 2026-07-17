@@ -43,3 +43,10 @@ jobs:
       - name: Compile package
         run: |
           python -m py_compile minirag/*.py
+            - name: Run pytest
+        run: |
+          python -m pytest
+
+      - name: Compile package
+        run: |
+          python -m py_compile minirag/*.py
