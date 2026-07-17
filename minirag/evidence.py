@@ -1,3 +1,4 @@
+from typing import List
 class EvidenceSelector:
     def __init__(self, evidence_threshold, top_k_evidence):
         self.evidence_threshold = evidence_threshold
