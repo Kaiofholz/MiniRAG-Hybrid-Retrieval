@@ -1,3 +1,4 @@
+from minirag.schemas import AnswerResult
 class AnswerFinalizer:
     def __init__(self, answer_cache):
         self.answer_cache = answer_cache
