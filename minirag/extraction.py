@@ -1,3 +1,4 @@
+import re
 class ExtractiveRuleEngine:
     def __init__(
         self,
