@@ -10,10 +10,10 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -25,3 +25,7 @@ jobs:
       - name: Run import test
         run: |
           python -c "from minirag.schemas import AnswerResult, RetrievedChunk, SentenceCandidate; print('import ok')"
+
+      - name: Compile package
+        run: |
+          python -m py_compile minirag/*.py
