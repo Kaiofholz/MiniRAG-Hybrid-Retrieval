@@ -120,3 +120,29 @@ def test_minirag_clear_llm_cache_removes_cached_llm_answers():
     rag.clear_llm_cache()
 
     assert len(rag.llm_cache) == 0
+
+
+def test_minirag_answer_handles_no_retrieved_evidence():
+    def fake_dense_search(query, **kwargs):
+        return []
+
+    def fake_bm25_search(query, **kwargs):
+        return []
+
+    rag = MiniRAG(
+        dense_retriever=RetrieverWrapper(fake_dense_search),
+        bm25_retriever=RetrieverWrapper(fake_bm25_search),
+        cross_encoder=None,
+        retrieval_fusion="rrf",
+    )
+
+    result = rag.answer(
+        "What was Shakespeare's favorite color?",
+        use_cache=False,
+        debug=False,
+    )
+
+    assert result.supported is False
+    assert result.confidence == 0.0
+    assert result.evidence_sentences == []
+    assert result.answer

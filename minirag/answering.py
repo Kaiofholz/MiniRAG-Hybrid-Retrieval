@@ -46,12 +46,12 @@ class AnswerResultFactory:
         
         
     def answer_no_retrieved_evidence(self, question, debug_info):
-        return AnswerResult(
+        return self.answer_finalizer.finalize_answer_result(
             question=question,
-            answer=answer_text,
+            answer="No relevant evidence was retrieved.",
             supported=False,
             confidence=0.0,
-            mode=mode,
+            mode="no_evidence",
             evidence_sentences=[],
             debug_info=debug_info,
         )
