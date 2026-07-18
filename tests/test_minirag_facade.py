@@ -104,3 +104,19 @@ def test_minirag_clear_cache_removes_cached_answers():
     rag.clear_cache()
 
     assert len(rag.answer_cache) == 0
+
+
+def test_minirag_clear_llm_cache_removes_cached_llm_answers():
+    rag = MiniRAG(
+        dense_retriever=None,
+        bm25_retriever=None,
+        cross_encoder=None,
+    )
+
+    rag.llm_cache.save("Prompt text", "Cached answer")
+
+    assert len(rag.llm_cache) == 1
+
+    rag.clear_llm_cache()
+
+    assert len(rag.llm_cache) == 0
