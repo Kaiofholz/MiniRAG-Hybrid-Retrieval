@@ -137,3 +137,13 @@ The main learning goal was to inspect how retrieval results are selected, rerank
 - Add clearer evaluation examples.
 - Explore hybrid search and metadata filtering.
 - Build a small demo interface or API.
+
+## Run the Offline Demo
+
+The repository includes a lightweight offline demo that uses fake retrievers instead of external models or APIs.
+
+Run it from the repository root with:
+
+```bash
+PYTHONPATH=. python examples/offline_minirag_demo.py
+```
