@@ -77,3 +77,18 @@ def test_evidence_pipeline_selects_sufficient_evidence():
     assert len(result.evidence) == 1
     assert "Stratford-upon-Avon" in result.evidence[0].text
     assert len(result.sentence_candidates) == 1
+
+
+def test_evidence_pipeline_debug_mode_does_not_crash(capsys):
+    pipeline = build_test_evidence_pipeline()
+
+    result = pipeline.run(
+        question="Where was Shakespeare born?",
+        debug_info={},
+        debug=True,
+    )
+
+    captured = capsys.readouterr()
+
+    assert result.evidence_is_sufficient is True
+    assert "Top Sentence Candidates" in captured.out

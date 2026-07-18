@@ -464,6 +464,11 @@ class EvidencePipeline:
         self.evidence_selector = evidence_selector
         self.debug_formatter = debug_formatter
         self.answer_result_factory = answer_result_factory
+    def print_ranked(self, items, formatter, title="Ranked Items", limit=10):
+        print(f"\n=== {title} ===")
+        for rank, item in enumerate(items[:limit], start=1):
+            print(f"{rank}. {formatter(item)}")
+
     def run(self, question, debug_info, debug=False):
         retrieval_result = self.retrieval_engine.retrieve_candidates_with_details(question)
         retrieved = retrieval_result.retrieved
