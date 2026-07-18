@@ -3,3 +3,8 @@ __pycache__/
 .ipynb_checkpoints/
 .env
 .env.*
+
+# Python package metadata
+*.egg-info/
+build/
+dist/
