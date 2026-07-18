@@ -77,3 +77,30 @@ def test_minirag_answer_uses_answer_cache():
 
     assert first is second
     assert calls == {"dense": 1, "bm25": 1}
+
+
+def test_minirag_clear_cache_removes_cached_answers():
+    def fake_dense_search(query, **kwargs):
+        return [
+            ("William Shakespeare was born in Stratford-upon-Avon.", 0.9, 1),
+        ]
+
+    def fake_bm25_search(query, **kwargs):
+        return [
+            ("William Shakespeare was born in Stratford-upon-Avon.", 10.0, 1),
+        ]
+
+    rag = MiniRAG(
+        dense_retriever=RetrieverWrapper(fake_dense_search),
+        bm25_retriever=RetrieverWrapper(fake_bm25_search),
+        cross_encoder=None,
+        retrieval_fusion="rrf",
+    )
+
+    rag.answer("Where was Shakespeare born?", use_cache=True)
+
+    assert len(rag.answer_cache) == 1
+
+    rag.clear_cache()
+
+    assert len(rag.answer_cache) == 0
