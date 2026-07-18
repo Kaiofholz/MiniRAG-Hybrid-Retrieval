@@ -1,3 +1,4 @@
+import re
 from minirag.schemas import AnswerResult, RetrievalAnswerPipelineResult
 from minirag.cache import AnswerCache, LLMCache
 from minirag.formatting import PromptBuilder, DebugFormatter, EvidenceFormatter, DebugInfoBuilder
@@ -6,6 +7,7 @@ from minirag.extraction import QueryAnalyzer, BasicAnswerExtractor, TextPatternE
 from minirag.retrieval import RetrievalEngine, ChunkReranker
 from minirag.evidence import SentenceCandidateBuilder, SentenceScorer, EvidenceSelector, EvidencePipeline
 from minirag.generation import GroundingValidator, RealLLMGenerator, MockEvidenceGenerator, GenerativeEvidenceAnswerer, SmallLMGenerator
+import re
 class AnswerFinalizer:
     def __init__(self, answer_cache):
         self.answer_cache = answer_cache
