@@ -572,7 +572,7 @@ class EvidencePipeline:
                 print("FINAL:", e.final_score)
                 print("TEXT:", e.text)
 
-            print("EVIDENCE_IS_SUFFICIENT:", self.evidence_is_sufficient(evidence))
+            print("EVIDENCE_IS_SUFFICIENT:", evidence_is_sufficient)
 
         return EvidenceContext(
             early_result=None,
