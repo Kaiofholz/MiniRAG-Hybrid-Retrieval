@@ -147,3 +147,18 @@ Run it from the repository root with:
 ```bash
 PYTHONPATH=. python examples/offline_minirag_demo.py
 ```
+
+## Installation for Development
+
+Install the package in editable mode with development dependencies:
+
+```bash
+python -m pip install -e ".[dev]"
+```
+
+This installs the local minirag package together with test tooling such as pytest.
+
+Then run all checks with:
+
+make check
+
