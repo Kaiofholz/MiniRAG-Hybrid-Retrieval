@@ -1,4 +1,5 @@
-from minirag.answering import AnswerFinalizer, StructuredSpecLookupHandler
+from minirag.answering import AnswerFinalizer
+from minirag.special_routes import StructuredSpecLookupHandler
 from minirag.cache import AnswerCache
 from minirag.routing import StructuredSpecQueryParser
 

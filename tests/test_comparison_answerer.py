@@ -1,4 +1,5 @@
-from minirag.answering import AnswerFinalizer, ComparisonAnswerer
+from minirag.answering import AnswerFinalizer
+from minirag.special_routes import ComparisonAnswerer
 from minirag.cache import AnswerCache
 from minirag.schemas import AnswerResult
 import re
