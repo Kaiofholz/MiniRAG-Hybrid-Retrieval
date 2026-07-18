@@ -345,3 +345,17 @@ class GroundingValidator:
             "relation_bonuses": relation_bonuses,
             "status": "supported" if semantic_support else "unsupported",
         }
+
+
+class SmallLMGenerator:
+    def __init__(self, small_lm=None, tokenizer=None):
+        self.small_lm = small_lm
+        self.tokenizer = tokenizer
+
+    def generate(self, prompt, **kwargs):
+        if self.small_lm is None or self.tokenizer is None:
+            raise ValueError("SmallLMGenerator requires both small_lm and tokenizer.")
+
+        inputs = self.tokenizer(prompt, return_tensors="pt")
+        outputs = self.small_lm.generate(**inputs, **kwargs)
+        return self.tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
