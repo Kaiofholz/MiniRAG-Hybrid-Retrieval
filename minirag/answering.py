@@ -1,4 +1,4 @@
-from minirag.schemas import AnswerResult
+from minirag.schemas import AnswerResult, RetrievalAnswerPipelineResult
 class AnswerFinalizer:
     def __init__(self, answer_cache):
         self.answer_cache = answer_cache
