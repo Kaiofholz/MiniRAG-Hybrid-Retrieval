@@ -1,5 +1,5 @@
 from typing import List
-from minirag.schemas import SentenceCandidate, RetrievedChunk, EvidenceSelectionResult
+from minirag.schemas import SentenceCandidate, RetrievedChunk, EvidenceSelectionResult, EvidenceContext
 import re
 class EvidenceSelector:
     def __init__(self, evidence_threshold, top_k_evidence):
@@ -414,8 +414,8 @@ class SentenceScorer:
                 cand.heuristic_score = (
                     self.relation_bonus(question, cand.text)
                     + self.profession_bonus(question, cand.text)
-                    + date_birth_bonus(cand.text)
-                    + father_job_bonus(question, cand.text)
+                    + self.date_birth_bonus(question, cand.text)
+                    + self.father_job_bonus(question, cand.text)
                     - self.vagueness_penalty(cand.text)
                 )
                 cand.final_score = cand.base_score + cand.heuristic_score
