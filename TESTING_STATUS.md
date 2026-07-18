@@ -35,3 +35,14 @@ GitHub Actions runs pytest and package compilation on push and pull request.
 ## Current testing philosophy
 
 The CI tests avoid external services and heavy model downloads. They use fake retrievers, fake LLM functions, and lightweight package components so the tests remain fast and deterministic.
+
+## Recent Route Coverage Additions
+
+Special-route behavior is now covered by tests:
+
+- Structured spec lookup handler finds exact technical parameters from structured records.
+- `MiniRAG.answer()` uses structured spec lookup before normal retrieval.
+- Comparison answerer parses two-model comparison questions.
+- Comparison answerer compares supported numeric answers.
+- Comparison answerer asks for clarification when the comparison parameter is ambiguous.
+- Regression coverage added for `ComparisonAnswerer` requiring `import re`.
