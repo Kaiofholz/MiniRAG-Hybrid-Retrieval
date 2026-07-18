@@ -221,3 +221,57 @@ def test_minirag_answer_uses_structured_spec_special_route_before_retrieval():
     ]
 
     assert calls == {"dense": 0, "bm25": 0}
+
+
+def test_minirag_answer_comparison_uses_structured_spec_subqueries():
+    calls = {"dense": 0, "bm25": 0}
+
+    def fake_dense_search(query, **kwargs):
+        calls["dense"] += 1
+        return []
+
+    def fake_bm25_search(query, **kwargs):
+        calls["bm25"] += 1
+        return []
+
+    spec_records = [
+        {
+            "model": "GW10K-ET",
+            "parameter": "max_input_current",
+            "value": "14",
+            "unit": " A",
+            "source_text": "GW10K-ET max input current is 14 A.",
+        },
+        {
+            "model": "GW8K-ET",
+            "parameter": "max_input_current",
+            "value": "12",
+            "unit": " A",
+            "source_text": "GW8K-ET max input current is 12 A.",
+        },
+    ]
+
+    rag = MiniRAG(
+        dense_retriever=RetrieverWrapper(fake_dense_search),
+        bm25_retriever=RetrieverWrapper(fake_bm25_search),
+        spec_records=spec_records,
+        cross_encoder=None,
+    )
+
+    result = rag.answer(
+        "Is GW10K-ET's max input current higher than GW8K-ET's?",
+        use_cache=False,
+        debug=False,
+    )
+
+    assert result.supported is True
+    assert result.mode == "comparison"
+    assert "Yes." in result.answer
+    assert "14A" in result.answer
+    assert "12A" in result.answer
+    assert result.evidence_sentences == [
+        "GW10K-ET max input current is 14 A.",
+        "GW8K-ET max input current is 12 A.",
+    ]
+
+    assert calls == {"dense": 0, "bm25": 0}
