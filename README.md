@@ -162,3 +162,11 @@ Then run all checks with:
 
 make check
 
+
+## Module Notes
+
+Special-route logic is separated from the main answer pipeline:
+
+- `minirag/answering.py` contains the main answer pipeline and `MiniRAG` facade.
+- `minirag/special_routes.py` contains comparison and structured-spec route handlers.
+- `minirag/routing.py` contains lightweight routing and parsing helpers.
