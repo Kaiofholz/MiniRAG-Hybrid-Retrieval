@@ -46,3 +46,13 @@ Special-route behavior is now covered by tests:
 - Comparison answerer compares supported numeric answers.
 - Comparison answerer asks for clarification when the comparison parameter is ambiguous.
 - Regression coverage added for `ComparisonAnswerer` requiring `import re`.
+
+## Module Structure Note
+
+Special-route logic now lives in a dedicated module:
+
+- `minirag/special_routes.py`
+  - `ComparisonAnswerer`
+  - `StructuredSpecLookupHandler`
+
+`minirag/answering.py` keeps the main answer pipeline and `MiniRAG` facade, while importing the special-route classes for compatibility.
