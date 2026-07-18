@@ -146,3 +146,34 @@ def test_minirag_answer_handles_no_retrieved_evidence():
     assert result.confidence == 0.0
     assert result.evidence_sentences == []
     assert result.answer
+
+
+def test_minirag_answer_debug_mode_does_not_crash(capsys):
+    def fake_dense_search(query, **kwargs):
+        return [
+            ("William Shakespeare was born in Stratford-upon-Avon.", 0.9, 1),
+        ]
+
+    def fake_bm25_search(query, **kwargs):
+        return [
+            ("William Shakespeare was born in Stratford-upon-Avon.", 10.0, 1),
+        ]
+
+    rag = MiniRAG(
+        dense_retriever=RetrieverWrapper(fake_dense_search),
+        bm25_retriever=RetrieverWrapper(fake_bm25_search),
+        cross_encoder=None,
+        retrieval_fusion="rrf",
+    )
+
+    result = rag.answer(
+        "Where was Shakespeare born?",
+        use_cache=False,
+        debug=True,
+    )
+
+    captured = capsys.readouterr()
+
+    assert result.answer == "Stratford-upon-Avon"
+    assert result.supported is True
+    assert "Top Sentence Candidates" in captured.out
